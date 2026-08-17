@@ -1,4 +1,4 @@
-import { MASS, GRAVITY, HOVER_THRUST, motorSitesMj } from '../world.js';
+import { MASS, GRAVITY, HOVER_THRUST, MOTOR_SITES_MJ, YAW_GEAR } from '../world-scene.js';
 import { threePosToMj } from '../coords.js';
 
 const KP_POS = [6.5, 6.5, 9.5];
@@ -100,25 +100,50 @@ function desiredRotation(b3, yawDir) {
   return rotToQuat(matFromAxes(x, y, z));
 }
 
-const SITES = motorSitesMj();
+const SITES = MOTOR_SITES_MJ;
 
-export function mix(thrust, tau) {
-  const A = SITES.map((s) => [1, s.pos[1], -s.pos[0], -s.spin * 0.018]);
-  const u = [HOVER_THRUST, HOVER_THRUST, HOVER_THRUST, HOVER_THRUST];
-  const wrench = [thrust, tau[0], tau[1], tau[2]];
-  for (let iter = 0; iter < 8; iter++) {
-    const pred = [0, 0, 0, 0];
-    for (let i = 0; i < 4; i++) {
-      for (let k = 0; k < 4; k++) pred[k] += A[i][k] * u[i];
+// B maps motor thrusts to [total thrust, roll torque, pitch torque, yaw torque].
+// For a site r=(x,y,z) and upward force F=(0,0,u), r x F=(y*u,-x*u,0).
+const ALLOCATION = [
+  SITES.map(() => 1),
+  SITES.map((s) => s.pos[1]),
+  SITES.map((s) => -s.pos[0]),
+  SITES.map((s) => -s.spin * YAW_GEAR),
+];
+
+function invert4(A) {
+  const aug = A.map((row, i) => [...row, ...[0, 1, 2, 3].map((j) => (i === j ? 1 : 0))]);
+  for (let col = 0; col < 4; col++) {
+    let pivot = col;
+    for (let row = col + 1; row < 4; row++) {
+      if (Math.abs(aug[row][col]) > Math.abs(aug[pivot][col])) pivot = row;
     }
-    const err = wrench.map((w, k) => w - pred[k]);
-    for (let i = 0; i < 4; i++) {
-      let g = 0;
-      for (let k = 0; k < 4; k++) g += A[i][k] * err[k];
-      u[i] = clamp(u[i] + 0.18 * g, 0, MAX_THRUST);
+    if (Math.abs(aug[pivot][col]) < 1e-10) throw new Error('Singular motor allocation matrix');
+    [aug[col], aug[pivot]] = [aug[pivot], aug[col]];
+    const scale = aug[col][col];
+    for (let j = 0; j < 8; j++) aug[col][j] /= scale;
+    for (let row = 0; row < 4; row++) {
+      if (row === col) continue;
+      const factor = aug[row][col];
+      for (let j = 0; j < 8; j++) aug[row][j] -= factor * aug[col][j];
     }
   }
-  return u;
+  return aug.map((row) => row.slice(4));
+}
+
+function mulMatVec(A, v) {
+  return A.map((row) => row.reduce((sum, value, i) => sum + value * v[i], 0));
+}
+
+const ALLOCATION_INV = invert4(ALLOCATION);
+
+export function motorWrench(thrusts) {
+  return mulMatVec(ALLOCATION, thrusts);
+}
+
+export function mix(thrust, tau) {
+  const wrench = [thrust, tau[0], tau[1], tau[2]];
+  return mulMatVec(ALLOCATION_INV, wrench).map((u) => clamp(u, 0, MAX_THRUST));
 }
 
 /**

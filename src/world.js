@@ -1,15 +1,11 @@
-import { SPEC, ROTORS, rotorAnchors } from '@drone/spec.js';
+import { SPEC } from '@drone/spec.js';
 import { threePosToMj } from './coords.js';
-import { DRONE_RADIUS, MASS, GRAVITY, HOVER_THRUST, YAW_GEAR, WORLD } from './world-scene.js';
+import { DRONE_RADIUS, MASS, GRAVITY, HOVER_THRUST, YAW_GEAR, MOTOR_SITES_MJ, WORLD } from './world-scene.js';
 
 export { DRONE_RADIUS, MASS, GRAVITY, HOVER_THRUST, YAW_GEAR, WORLD };
 
 export function motorSitesMj() {
-  return ROTORS.map((rotor) => {
-    const { motor } = rotorAnchors(rotor);
-    const [x, y, z] = threePosToMj(motor[0], motor[1], motor[2]);
-    return { ...rotor, pos: [x, y, z] };
-  });
+  return MOTOR_SITES_MJ.map((site) => ({ ...site, pos: site.pos.slice() }));
 }
 
 function boxToMj(obs) {

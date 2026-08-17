@@ -1,5 +1,6 @@
 import { MASS, GRAVITY } from '../src/world-scene.js';
 import { geometricWrench, resetGeometric, MAX_TILT, hoverState } from '../src/control/geometric-wrench.js';
+import { mix, motorWrench } from '../src/control/pid.js';
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -25,6 +26,20 @@ assert(Math.abs(h.f - MASS * GRAVITY) < 0.15, `hover thrust ${h.f} != mg`);
 assert(h.tau.every((t) => Math.abs(t) < 1e-4), `hover tau ${h.tau}`);
 assert(h.tilt < 0.05, `hover tilt ${h.tilt}`);
 console.log('ok hover', { f: +h.f.toFixed(3), tau: h.tau, tilt: +h.tilt.toFixed(4) });
+
+const hoverMotors = mix(MASS * GRAVITY, [0, 0, 0]);
+const hoverWrench = motorWrench(hoverMotors);
+assert(hoverWrench.every((value, i) => Math.abs(value - [MASS * GRAVITY, 0, 0, 0][i]) < 1e-9), `hover allocation ${hoverWrench}`);
+assert(Math.abs(hoverMotors[0] - hoverMotors[1]) > 0.5, 'asymmetric frame requires asymmetric hover thrusts');
+console.log('ok hover allocation', { motors: hoverMotors.map((v) => +v.toFixed(3)), wrench: hoverWrench });
+
+const desiredTau = [0.1, -0.08, 0.01];
+const allocatedWrench = motorWrench(mix(MASS * GRAVITY, desiredTau));
+assert(
+  allocatedWrench.every((value, i) => Math.abs(value - [MASS * GRAVITY, ...desiredTau][i]) < 1e-9),
+  `wrench allocation ${allocatedWrench}`
+);
+console.log('ok wrench allocation', allocatedWrench.map((v) => +v.toFixed(3)));
 
 resetGeometric();
 const rolled = hoverState();

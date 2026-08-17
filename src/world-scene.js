@@ -6,6 +6,14 @@ export const GRAVITY = 9.81;
 export const HOVER_THRUST = (MASS * GRAVITY) / 4;
 export const YAW_GEAR = 0.018;
 
+/** MuJoCo body-frame rotor locations and spin directions used by both MJCF and control allocation. */
+export const MOTOR_SITES_MJ = [
+  { id: 1, label: 'M1 右前', spin: -1, pos: [0.1378, -0.0932, -0.008] },
+  { id: 2, label: 'M2 左后', spin: -1, pos: [-0.1378, 0.1413, -0.008] },
+  { id: 3, label: 'M3 左前', spin: 1, pos: [-0.1378, -0.0932, -0.008] },
+  { id: 4, label: 'M4 右后', spin: 1, pos: [0.1378, 0.1413, -0.008] },
+];
+
 export const WORLD = {
   bounds: {
     min: [-10, 0.35, -10],
