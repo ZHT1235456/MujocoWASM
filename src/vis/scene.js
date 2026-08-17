@@ -63,12 +63,15 @@ export function createScene(renderer) {
 
 export function createCamera(canvas) {
   const camera = new THREE.PerspectiveCamera(42, 1, 0.05, 80);
-  camera.position.set(-12, 8, 11);
+  camera.position.set(WORLD.start[0] - 1.7, WORLD.start[1] + 1.1, WORLD.start[2] + 1.9);
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
+  controls.minDistance = 0.55;
+  controls.maxDistance = 28;
   controls.maxPolarAngle = Math.PI * 0.48;
-  controls.target.set(0, 1.2, 0);
+  controls.target.set(...WORLD.start);
+  controls.update();
   return { camera, controls };
 }
 
@@ -133,16 +136,17 @@ export function createWorldMeshes(scene) {
 function makeMarker(color) {
   const g = new THREE.Group();
   const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(0.18, 0.018, 8, 28),
+    new THREE.TorusGeometry(0.11, 0.012, 8, 28),
     new THREE.MeshBasicMaterial({ color })
   );
   ring.rotation.x = Math.PI / 2;
+  ring.position.y = -0.13;
   g.add(ring);
   const pole = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.012, 0.012, 0.35, 8),
+    new THREE.CylinderGeometry(0.008, 0.008, 0.1, 8),
     new THREE.MeshBasicMaterial({ color })
   );
-  pole.position.y = 0.18;
+  pole.position.y = -0.07;
   g.add(pole);
   return g;
 }
@@ -184,9 +188,11 @@ export function spinProps(drone, thrusts, dt) {
     const disc = rotor.propeller.userData.disc;
     if (disc) {
       disc.visible = blur > 0.02;
-      disc.material.opacity = blur * 0.5;
+      disc.material.opacity = blur * 0.28;
       for (const child of rotor.propeller.children) {
-        if (child !== disc) child.visible = blur < 0.98;
+        // Keep the detailed reference blades visible; the disc is only a
+        // subtle speed cue and should not replace the propeller model.
+        if (child !== disc) child.visible = true;
       }
     }
   }

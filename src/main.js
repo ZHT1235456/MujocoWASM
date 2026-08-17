@@ -27,8 +27,9 @@ const { drone, body, axes } = createDroneVisual(scene);
 const corridorGroup = createCorridorView(scene);
 
 const clock = new THREE.Clock();
+const followOffset = new THREE.Vector3(-1.7, 1.1, 1.9);
 const app = {
-  follow: false,
+  follow: true,
   paused: true,
   flying: false,
   holding: false,
@@ -297,8 +298,7 @@ function animate() {
     spinProps(drone, app.thrusts, dt);
 
     if (app.follow) {
-      const offset = new THREE.Vector3(-3.2, 2.2, 3.6);
-      const desired = body.position.clone().add(offset);
+      const desired = body.position.clone().add(followOffset);
       if (Number.isFinite(desired.x)) {
         camera.position.lerp(desired, 1 - Math.pow(0.04, dt));
         controls.target.lerp(body.position, 1 - Math.pow(0.08, dt));
@@ -321,6 +321,9 @@ async function main() {
     const start = WORLD.start.slice();
     app.sim = createSim(start);
     syncDrone(body, app.sim.model, app.sim.data);
+    camera.position.copy(body.position).add(followOffset);
+    controls.target.copy(body.position);
+    controls.update();
     bindPanel(app);
     window.__app = app;
     window.__body = body;
