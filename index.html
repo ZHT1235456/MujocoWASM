@@ -13,10 +13,10 @@
 
     <header id="titlecard">
       <h1>安全走廊仿真</h1>
-      <p>MuJoCo WASM · Three.js · RRT* · 贝塞尔平滑</p>
+      <p>MuJoCo WASM · 安全超矩形管 · 几何跟踪</p>
       <dl id="metrics">
         <div><dt>路径长度</dt><dd id="m-length">—</dd></div>
-        <div><dt>最小净空</dt><dd id="m-clearance">—</dd></div>
+        <div><dt>最小盒半宽</dt><dd id="m-clearance">—</dd></div>
         <div><dt>仿真时间</dt><dd id="m-time">0.00 s</dd></div>
         <div><dt>走廊状态</dt><dd id="m-inside">待机</dd></div>
       </dl>
@@ -36,12 +36,12 @@
       <section>
         <h2>规划</h2>
         <label class="slider">
-          <span>RRT* 迭代<em id="v-iters">2500</em></span>
-          <input id="c-iters" type="range" min="400" max="6000" step="100" value="2500" />
+          <span>采样次数 Nv<em id="v-iters">1500</em></span>
+          <input id="c-iters" type="range" min="400" max="4000" step="100" value="1500" />
         </label>
         <label class="slider">
-          <span>走廊半径上限<em id="v-radius">0.80 m</em></span>
-          <input id="c-radius" type="range" min="30" max="150" value="80" />
+          <span>跟踪裕度 Lp<em id="v-radius">0.18 m</em></span>
+          <input id="c-radius" type="range" min="8" max="40" value="18" />
         </label>
         <label class="slider">
           <span>巡航速度<em id="v-speed">1.6 m/s</em></span>
@@ -61,7 +61,7 @@
 
       <section>
         <h2>显示</h2>
-        <label class="switch"><input id="c-corridor" type="checkbox" checked /><span>安全走廊</span></label>
+        <label class="switch"><input id="c-corridor" type="checkbox" checked /><span>安全超矩形管</span></label>
         <label class="switch"><input id="c-centerline" type="checkbox" checked /><span>中心线</span></label>
         <label class="switch"><input id="c-tree" type="checkbox" /><span>RRT 树</span></label>
         <label class="switch"><input id="c-wire" type="checkbox" /><span>障碍线框</span></label>

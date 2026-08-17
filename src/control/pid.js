@@ -102,7 +102,7 @@ function desiredRotation(b3, yawDir) {
 
 const SITES = motorSitesMj();
 
-function mix(thrust, tau) {
+export function mix(thrust, tau) {
   const A = SITES.map((s) => [1, s.pos[1], -s.pos[0], -s.spin * 0.018]);
   const u = [HOVER_THRUST, HOVER_THRUST, HOVER_THRUST, HOVER_THRUST];
   const wrench = [thrust, tau[0], tau[1], tau[2]];

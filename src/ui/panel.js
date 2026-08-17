@@ -26,6 +26,7 @@ export function bindPanel(app) {
     app.plan(readStart(), readGoal(), {
       iters: Number($('c-iters').value),
       rMax: Number($('c-radius').value) / 100,
+      speed: Number($('c-speed').value) / 10,
     });
   });
   $('c-fly').addEventListener('click', () => app.fly(Number($('c-speed').value) / 10));

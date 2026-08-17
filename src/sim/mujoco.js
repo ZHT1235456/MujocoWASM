@@ -43,14 +43,16 @@ export function resetSim(sim, start) {
   return sim;
 }
 
-export function stepSim(sim, thrusts, dtRender) {
+export function stepSim(sim, thrustsOrFn, dtRender) {
   const { mujoco, model, data } = sim;
   const timestep = model.opt?.timestep ?? model.option?.timestep ?? 0.002;
   const ctrl = data.ctrl;
-  for (let i = 0; i < 4; i++) ctrl[i] = thrusts[i] ?? 0;
-  const target = data.time + dtRender;
+  const dt = Math.min(Math.max(0, dtRender), 1 / 30);
+  const target = data.time + dt;
   let guard = 0;
-  while (data.time < target && guard++ < 40) {
+  while (data.time < target && guard++ < 16) {
+    const thrusts = typeof thrustsOrFn === 'function' ? thrustsOrFn(timestep) : thrustsOrFn;
+    for (let i = 0; i < 4; i++) ctrl[i] = thrusts[i] ?? 0;
     mujoco.mj_step(model, data);
   }
 }

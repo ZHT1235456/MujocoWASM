@@ -49,14 +49,16 @@ export function drawTree(group, nodes, visible) {
 
 export function drawCorridor(group, samples, radii, options = {}) {
   disposeGroup(group);
-  if (!samples || samples.length < 2) return;
+  const hasPath = samples && samples.length >= 2;
+  const hasBoxes = !!options.boxes?.length;
+  if (!hasPath && !hasBoxes) return;
 
   const showCenter = options.centerline !== false;
   const showTube = options.corridor !== false;
   const violated = options.violated ?? false;
   const tubeColor = violated ? 0xd64545 : 0x3ec7c2;
 
-  if (showCenter) {
+  if (showCenter && hasPath) {
     const pts = samples.map(toVec3);
     const curve = new THREE.CatmullRomCurve3(pts);
     const line = new THREE.Line(
@@ -68,47 +70,88 @@ export function drawCorridor(group, samples, radii, options = {}) {
   }
 
   if (showTube) {
-    const pts = samples.map(toVec3);
-    const curve = new THREE.CatmullRomCurve3(pts);
-    const meanR = radii.reduce((a, b) => a + b, 0) / radii.length;
-    const tube = new THREE.Mesh(
-      new THREE.TubeGeometry(curve, Math.min(240, samples.length), Math.max(0.12, meanR * 0.92), 14, false),
+    if (options.boxes?.length) {
+      drawBoxes(group, options.boxes, tubeColor);
+    } else {
+      const pts = samples.map(toVec3);
+      const curve = new THREE.CatmullRomCurve3(pts);
+      const meanR = radii.reduce((a, b) => a + b, 0) / radii.length;
+      const tube = new THREE.Mesh(
+        new THREE.TubeGeometry(curve, Math.min(240, samples.length), Math.max(0.12, meanR * 0.92), 14, false),
+        new THREE.MeshPhysicalMaterial({
+          color: tubeColor,
+          transparent: true,
+          opacity: 0.16,
+          roughness: 0.35,
+          metalness: 0.05,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        })
+      );
+      tube.name = 'tube';
+      group.add(tube);
+
+      for (let i = 0; i < samples.length; i += Math.max(1, Math.floor(samples.length / 18))) {
+        const tangent = new THREE.Vector3();
+        if (i < samples.length - 1) {
+          tangent.set(
+            samples[i + 1][0] - samples[i][0],
+            samples[i + 1][1] - samples[i][1],
+            samples[i + 1][2] - samples[i][2]
+          ).normalize();
+        } else {
+          tangent.set(
+            samples[i][0] - samples[i - 1][0],
+            samples[i][1] - samples[i - 1][1],
+            samples[i][2] - samples[i - 1][2]
+          ).normalize();
+        }
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(radii[i], 0.012, 8, 28),
+          new THREE.MeshBasicMaterial({ color: tubeColor, transparent: true, opacity: 0.55 })
+        );
+        ring.position.set(...samples[i]);
+        ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
+        group.add(ring);
+      }
+    }
+  }
+}
+
+function drawBoxes(group, boxes, color) {
+  for (const box of boxes) {
+    const aabb = box.aabb;
+    if (!aabb) continue;
+    const size = [aabb.max[0] - aabb.min[0], aabb.max[1] - aabb.min[1], aabb.max[2] - aabb.min[2]];
+    const center = [
+      0.5 * (aabb.min[0] + aabb.max[0]),
+      0.5 * (aabb.min[1] + aabb.max[1]),
+      0.5 * (aabb.min[2] + aabb.max[2]),
+    ];
+    const geo = new THREE.BoxGeometry(size[0], size[1], size[2]);
+    const mesh = new THREE.Mesh(
+      geo,
       new THREE.MeshPhysicalMaterial({
-        color: tubeColor,
+        color,
         transparent: true,
-        opacity: 0.16,
-        roughness: 0.35,
-        metalness: 0.05,
+        opacity: 0.13,
+        roughness: 0.4,
+        metalness: 0.04,
         side: THREE.DoubleSide,
         depthWrite: false,
       })
     );
-    tube.name = 'tube';
-    group.add(tube);
+    mesh.position.set(...center);
+    mesh.name = 'tubeBox';
+    group.add(mesh);
 
-    for (let i = 0; i < samples.length; i += Math.max(1, Math.floor(samples.length / 18))) {
-      const tangent = new THREE.Vector3();
-      if (i < samples.length - 1) {
-        tangent.set(
-          samples[i + 1][0] - samples[i][0],
-          samples[i + 1][1] - samples[i][1],
-          samples[i + 1][2] - samples[i][2]
-        ).normalize();
-      } else {
-        tangent.set(
-          samples[i][0] - samples[i - 1][0],
-          samples[i][1] - samples[i - 1][1],
-          samples[i][2] - samples[i - 1][2]
-        ).normalize();
-      }
-      const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(radii[i], 0.012, 8, 28),
-        new THREE.MeshBasicMaterial({ color: tubeColor, transparent: true, opacity: 0.55 })
-      );
-      ring.position.set(...samples[i]);
-      ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
-      group.add(ring);
-    }
+    const edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(geo),
+      new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.5 })
+    );
+    edges.position.set(...center);
+    edges.name = 'tubeBoxEdge';
+    group.add(edges);
   }
 }
 

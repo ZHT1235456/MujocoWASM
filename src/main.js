@@ -1,11 +1,10 @@
 import * as THREE from 'three';
-import { WORLD, DRONE_RADIUS } from './world.js';
+import { WORLD } from './world.js';
 import { initMujoco, createSim, stepSim } from './sim/mujoco.js';
-import { planRrtStar, shortcutPath } from './plan/rrtstar.js';
-import { smoothBezier, resampleArc } from './plan/bezier.js';
-import { inflateCorridor, pointOnPath, corridorRadiusAt } from './plan/corridor.js';
-import { dist } from './plan/collide.js';
-import { computeControl, hoverThrusts } from './control/pid.js';
+import { planSafeTube } from './plan/rrt-tube.js';
+import { bezierInTube, evalTrajectory, sampleTrajectory, pointInTube } from './plan/bezier-tube.js';
+import { hoverThrusts } from './control/pid.js';
+import { computeGeometricControl, resetGeometric } from './control/geometric.js';
 import {
   createRenderer,
   createScene,
@@ -36,7 +35,7 @@ const app = {
   sim: null,
   planResult: null,
   show: { corridor: true, centerline: true, tree: false, wire: false, axes: false },
-  s: 0,
+  t: 0,
   speed: 1.6,
   violations: 0,
   thrusts: hoverThrusts(),
@@ -62,6 +61,7 @@ function redrawPath() {
     corridor: app.show.corridor,
     centerline: app.show.centerline,
     violated: r.violated,
+    boxes: r.boxes,
   });
   drawTree(corridorGroup, r.nodes, app.show.tree);
 }
@@ -81,46 +81,53 @@ app.plan = async (start, goal, opts) => {
   app.paused = true;
   app.flying = false;
   app.holding = false;
-  setBusy(true, '正在规划路径…');
-  setStatus('正在运行 RRT*，请稍候…');
+  setBusy(true, '正在规划安全超矩形管…');
+  setStatus('正在运行 Algorithm 1（安全管 RRT），请稍候…');
   currentStartGoal(start, goal);
   await waitFrame();
   try {
-    const planned = planRrtStar(start, goal, {
-      iters: opts.iters,
-      bounds: WORLD.bounds,
+    const planned = await planSafeTube(start, goal, {
+      nv: opts.iters,
+      margin0: opts.rMax,
+      alphaV: opts.speed ?? app.speed,
+      yieldFn: waitFrame,
     });
-    if (!planned.ok || planned.path.length < 2) {
-      setStatus('规划失败：请增加迭代次数或调整起终点');
-      app.planResult = { nodes: planned.nodes, samples: [], radii: [], violated: false };
+    if (!planned.ok || planned.boxes.length < 2) {
+      setStatus(planned.message || '规划失败：请增加采样次数或减小跟踪裕度');
+      app.planResult = { nodes: planned.nodes, samples: [], radii: [], boxes: [], violated: false };
       redrawPath();
       return;
     }
-    const short = shortcutPath(planned.path);
-    const bezier = smoothBezier(short);
-    const resampled = resampleArc(bezier.samples, bezier.tangents, 0.1);
-    const corridor = inflateCorridor(resampled.samples, { rMax: opts.rMax, rMin: DRONE_RADIUS + 0.04 });
+    const traj = bezierInTube(planned.boxes, { np: 5 });
+    if (!traj.ok) {
+      setStatus('盒内贝塞尔生成失败');
+      app.planResult = { ...planned, samples: [], radii: [], violated: false };
+      redrawPath();
+      return;
+    }
+    const resampled = sampleTrajectory(traj, 0.08);
+    const radii = planned.boxes.map((b) => Math.min(...b.r));
     app.planResult = {
       ...planned,
-      path: short,
+      traj,
       samples: resampled.samples,
       tangents: resampled.tangents,
       sTable: resampled.s,
       length: resampled.length,
-      radii: corridor.radii,
-      minClearance: corridor.minClearance,
+      radii,
+      minClearance: planned.minClearance,
       violated: false,
     };
-    app.s = 0;
+    app.t = 0;
     app.violations = 0;
     redrawPath();
     setMetrics({
       length: resampled.length,
-      clearance: corridor.minClearance,
+      clearance: planned.minClearance,
       time: 0,
       inside: '已规划',
     });
-    setStatus(`规划完成：${short.length} 个路标，长度 ${resampled.length.toFixed(1)} m`);
+    setStatus(`规划完成：${planned.boxes.length} 个安全盒，时长 ${planned.duration.toFixed(1)} s`);
   } finally {
     app.planning = false;
     setBusy(false);
@@ -145,7 +152,7 @@ app.moveGoal = (goal) => {
 
 app.fly = (speed) => {
   if (app.planning) return;
-  if (!app.planResult?.samples?.length) {
+  if (!app.planResult?.traj) {
     setStatus('请先规划路径');
     return;
   }
@@ -165,11 +172,13 @@ app.fly = (speed) => {
   app.paused = false;
   app.flying = true;
   app.holding = false;
-  app.s = 0;
+  app.t = 0;
   app.violations = 0;
+  resetGeometric();
+  clock.getDelta();
   if (app.planResult) app.planResult.violated = false;
   document.getElementById('c-pause').textContent = '暂停';
-  setStatus('沿安全走廊跟踪飞行');
+  setStatus('几何控制跟踪安全管');
   redrawPath();
 };
 
@@ -193,9 +202,10 @@ app.reset = (start) => {
   app.paused = true;
   app.flying = false;
   app.holding = false;
-  app.s = 0;
+  app.t = 0;
   app.violations = 0;
   app.thrusts = hoverThrusts();
+  resetGeometric();
   if (app.planResult) app.planResult.violated = false;
   document.getElementById('c-pause').textContent = '暂停';
   currentStartGoal(start, [
@@ -208,43 +218,35 @@ app.reset = (start) => {
   setStatus('已重置到起点');
 };
 
-function trajectoryRef(dt) {
+function trajectoryRef() {
   const r = app.planResult;
-  if (!r?.samples?.length) return null;
-  const vmax = app.speed;
-  const acc = 1.2;
-  const length = r.length;
+  if (!r?.traj) return null;
+  const e = evalTrajectory(r.traj, app.t);
+  if (!e) return null;
+  if (e.done || app.holding) {
+    const goal = r.samples[r.samples.length - 1] || r.boxes[r.boxes.length - 1].p;
+    return { p: goal, v: [0, 0, 0], a: [0, 0, 0], yawDir: e.yawDir, done: true };
+  }
+  return e;
+}
+
+function advanceTrajectory(simDt, ref) {
+  if (!app.flying || app.holding || !ref || ref.done) return;
+  if (app.sim.data.time < 0.4) return;
+  const r = app.planResult;
   const pNow = [body.position.x, body.position.y, body.position.z];
-  const here = pointOnPath(app.s, r.sTable, r.samples, r.tangents);
-  const trackingErr = dist(pNow, here.p);
-  const tAcc = vmax / acc;
-  const dAcc = 0.5 * acc * tAcc * tAcc;
-  let v = vmax;
-  if (app.s < dAcc) v = Math.sqrt(Math.max(0.05, 2 * acc * app.s));
-  if (length - app.s < dAcc) v = Math.sqrt(Math.max(0.05, 2 * acc * Math.max(0, length - app.s)));
-  if (trackingErr > 0.55) v *= 0.15;
-  else if (trackingErr > 0.28) v *= 0.45;
-  app.s = Math.min(length, app.s + v * dt);
-  const { p, t } = pointOnPath(app.s, r.sTable, r.samples, r.tangents);
-  const n = Math.hypot(t[0], t[1], t[2]) || 1;
-  const yawDir = [t[0] / n, t[1] / n, t[2] / n];
-  const done = app.s >= length - 1e-3;
-  return {
-    p: done ? r.samples[r.samples.length - 1] : p,
-    v: done ? [0, 0, 0] : [yawDir[0] * v, yawDir[1] * v, yawDir[2] * v],
-    yawDir,
-    done,
-  };
+  const err = Math.hypot(pNow[0] - ref.p[0], pNow[1] - ref.p[1], pNow[2] - ref.p[2]);
+  let scale = app.speed / Math.max(0.2, r.alphaV || 1.6);
+  if (err > 0.55) scale *= 0.08;
+  else if (err > 0.28) scale *= 0.35;
+  app.t += Math.min(0.04, simDt) * scale;
 }
 
 function checkCorridor() {
   const r = app.planResult;
-  if (!r?.samples?.length) return true;
+  if (!r?.boxes?.length) return true;
   const p = [body.position.x, body.position.y, body.position.z];
-  const { p: q } = pointOnPath(app.s, r.sTable, r.samples, r.tangents);
-  const rad = corridorRadiusAt(app.s, r.sTable, r.radii);
-  const d = dist(p, q);
-  const inside = d <= rad + 0.02;
+  const inside = pointInTube(p, r.boxes, app.t);
   if (!inside && !r.violated) {
     r.violated = true;
     app.violations += 1;
@@ -252,29 +254,37 @@ function checkCorridor() {
   }
   setMetrics({
     time: app.sim.data.time,
-    inside: inside ? '走廊内' : `越界 ×${app.violations}`,
+    inside: inside ? '管内' : `越界 ×${app.violations}`,
   });
   return inside;
 }
 
 function animate() {
   try {
-    const dt = Math.min(clock.getDelta(), 0.05);
+    const dt = Math.min(clock.getDelta(), 1 / 30);
     if (app.sim && !app.paused) {
       let thrusts = hoverThrusts();
+      const t0 = app.sim.data.time;
       if (app.flying || app.holding) {
-        const ref = trajectoryRef(dt);
+        const ref = trajectoryRef();
         if (ref) {
-          thrusts = computeControl(app.sim.data, ref);
+          stepSim(app.sim, (h) => computeGeometricControl(app.sim.data, ref, app.sim.data.time, h), dt);
+          const ctrl = app.sim.data.ctrl;
+          thrusts = [ctrl[0], ctrl[1], ctrl[2], ctrl[3]];
           if (ref.done && app.flying) {
             app.flying = false;
             app.holding = true;
             setStatus('到达终点，定点悬停');
+          } else {
+            advanceTrajectory(app.sim.data.time - t0, ref);
           }
+        } else {
+          stepSim(app.sim, hoverThrusts(), dt);
         }
+      } else {
+        stepSim(app.sim, thrusts, dt);
       }
       app.thrusts = thrusts;
-      stepSim(app.sim, thrusts, dt);
       checkCorridor();
     }
     if (app.sim) syncDrone(body, app.sim.model, app.sim.data);
