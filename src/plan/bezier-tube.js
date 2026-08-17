@@ -8,6 +8,7 @@ function binom(n, k) {
 }
 
 function bernstein(n, i, s) {
+  if (i < 0 || i > n) return 0;
   return binom(n, i) * s ** i * (1 - s) ** (n - i);
 }
 
@@ -146,6 +147,13 @@ export function sampleTrajectory(traj, dt = 0.08) {
     tangents.push(e.v);
     sTable.push(acc);
     prev = e.p;
+  }
+  const end = evalTrajectory(traj, traj.duration);
+  if (end && (!prev || Math.hypot(end.p[0] - prev[0], end.p[1] - prev[1], end.p[2] - prev[2]) > 1e-6)) {
+    acc += prev ? Math.hypot(end.p[0] - prev[0], end.p[1] - prev[1], end.p[2] - prev[2]) : 0;
+    samples.push(end.p);
+    tangents.push(end.v);
+    sTable.push(acc);
   }
   return { samples, tangents, s: sTable, length: acc };
 }

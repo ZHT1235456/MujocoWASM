@@ -19,7 +19,6 @@ export function computeGeometricControl(data, ref, t, dt) {
     p: threePosToMj(ref.p[0], ref.p[1], ref.p[2]),
     v: threePosToMj(ref.v[0], ref.v[1], ref.v[2]),
     a: threePosToMj(ref.a?.[0] ?? 0, ref.a?.[1] ?? 0, ref.a?.[2] ?? 0),
-    yawDirMj: threePosToMj(ref.yawDir?.[0] ?? 0, 0, ref.yawDir?.[2] ?? -1),
   };
   const { f, tau } = geometricWrench(state, mjRef, t, dt);
   return mix(Math.min(MAX_THRUST * 4, Math.max(0, f)), tau);

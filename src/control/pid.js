@@ -136,14 +136,41 @@ function mulMatVec(A, v) {
 }
 
 const ALLOCATION_INV = invert4(ALLOCATION);
+const UNIT_COLLECTIVE = mulMatVec(ALLOCATION_INV, [1, 0, 0, 0]);
+const COLLECTIVE_LIMIT = Math.min(
+  ...UNIT_COLLECTIVE.filter((u) => u > 1e-12).map((u) => MAX_THRUST / u)
+);
 
 export function motorWrench(thrusts) {
   return mulMatVec(ALLOCATION, thrusts);
 }
 
+function admissibleStep(base, delta) {
+  let scale = 1;
+  for (let i = 0; i < base.length; i++) {
+    if (delta[i] > 1e-12) scale = Math.min(scale, (MAX_THRUST - base[i]) / delta[i]);
+    else if (delta[i] < -1e-12) scale = Math.min(scale, -base[i] / delta[i]);
+  }
+  return clamp(scale, 0, 1);
+}
+
+function addScaled(base, delta, scale) {
+  return base.map((value, i) => value + scale * delta[i]);
+}
+
 export function mix(thrust, tau) {
-  const wrench = [thrust, tau[0], tau[1], tau[2]];
-  return mulMatVec(ALLOCATION_INV, wrench).map((u) => clamp(u, 0, MAX_THRUST));
+  // Preserve collective thrust first, then roll/pitch, and use only the
+  // remaining actuator authority for yaw. Independent motor clipping couples
+  // an infeasible yaw request into a large roll torque on this asymmetric frame.
+  const allocatedThrust = clamp(thrust, 0, COLLECTIVE_LIMIT);
+  let motors = UNIT_COLLECTIVE.map((u) => u * allocatedThrust);
+
+  const rollPitchDelta = mulMatVec(ALLOCATION_INV, [0, tau[0], tau[1], 0]);
+  motors = addScaled(motors, rollPitchDelta, admissibleStep(motors, rollPitchDelta));
+
+  const yawDelta = mulMatVec(ALLOCATION_INV, [0, 0, 0, tau[2]]);
+  motors = addScaled(motors, yawDelta, admissibleStep(motors, yawDelta));
+  return motors.map((u) => clamp(u, 0, MAX_THRUST));
 }
 
 /**

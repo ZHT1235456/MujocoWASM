@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { WORLD } from './world.js';
 import { initMujoco, createSim, stepSim } from './sim/mujoco.js';
 import { planSafeTube } from './plan/rrt-tube.js';
-import { bezierInTube, evalTrajectory, sampleTrajectory, pointInTube } from './plan/bezier-tube.js';
+import { evalTrajectory, sampleTrajectory, pointInTube } from './plan/bezier-tube.js';
+import { bezierLpInTube } from './plan/bezier-lp.js';
 import { hoverThrusts } from './control/pid.js';
 import { computeGeometricControl, resetGeometric } from './control/geometric.js';
 import {
@@ -98,13 +99,18 @@ app.plan = async (start, goal, opts) => {
       redrawPath();
       return;
     }
-    const traj = bezierInTube(planned.boxes, { np: 5 });
+    setStatus('安全管已生成，正在求解 Algorithm 2 轨迹 LP…');
+    await waitFrame();
+    const traj = await bezierLpInTube(planned.boxes, { np: 9 });
     if (!traj.ok) {
-      setStatus('盒内贝塞尔生成失败');
+      setStatus(traj.message || 'Algorithm 2 轨迹 LP 求解失败');
       app.planResult = { ...planned, samples: [], radii: [], violated: false };
       redrawPath();
       return;
     }
+    planned.boxes = planned.boxes.map((box, i) => ({ ...box, t: traj.times[i] }));
+    planned.times = traj.times;
+    planned.duration = traj.duration;
     const resampled = sampleTrajectory(traj, 0.08);
     const radii = planned.boxes.map((b) => Math.min(...b.r));
     app.planResult = {

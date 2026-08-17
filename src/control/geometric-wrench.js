@@ -9,10 +9,12 @@ const J = [0.014, 0.014, 0.022];
 
 let prevRd = null;
 let prevT = null;
+let prevOmegaD = null;
 
 export function resetGeometric() {
   prevRd = null;
   prevT = null;
+  prevOmegaD = null;
 }
 
 function quatToR(q) {
@@ -97,16 +99,18 @@ function so3LogOmega(Rd, prev) {
   return [w[0] * theta, w[1] * theta, w[2] * theta];
 }
 
-/** 与已验证的级联 PID 同一套机体轴：+Z 推力，-Y 机头。 */
-export function desiredRotation(b3, yawDirMj) {
+/** Paper (14)-(16): construct the desired attitude directly from Fd. */
+export function desiredRotation(b3) {
   const z = normalize(b3);
-  let nose = normalize([yawDirMj[0], yawDirMj[1], 0]);
-  if (Math.hypot(nose[0], nose[1]) < 1e-4) nose = [0, -1, 0];
-  let y = normalize([-nose[0], -nose[1], -nose[2]]);
-  let x = cross(y, z);
-  if (norm(x) < 1e-6) x = [1, 0, 0];
-  else x = normalize(x);
-  y = cross(z, x);
+  // Paper (14)-(16): the unique, smooth zero-heading rotation associated
+  // with Fd. Fd_z > 0 keeps the denominator away from the singularity.
+  const denom = Math.max(1e-8, 1 + z[2]);
+  const x = normalize([
+    z[2] + (z[1] * z[1]) / denom,
+    (-z[0] * z[1]) / denom,
+    -z[0],
+  ]);
+  const y = cross(z, x);
   return [
     [x[0], y[0], z[0]],
     [x[1], y[1], z[1]],
@@ -157,24 +161,30 @@ export function geometricWrench(state, ref, t, dt) {
   const e3 = [R[0][2], R[1][2], R[2][2]];
   const f = Math.max(0, Fd[0] * e3[0] + Fd[1] * e3[1] + Fd[2] * e3[2]);
 
-  const yaw = ref.yawDirMj || [0, -1, 0];
-  const Rd = desiredRotation(Fd, yaw);
+  const Rd = desiredRotation(Fd);
   const eR = vee(subMat(mulMat(transpose(Rd), R), mulMat(transpose(R), Rd))).map((v) => 0.5 * v);
 
   let omegaD = [0, 0, 0];
   if (prevRd && prevT != null && dt > 1e-4) {
     omegaD = so3LogOmega(Rd, prevRd).map((w) => clamp(w / dt, -6, 6));
   }
+  let omegaDDot = [0, 0, 0];
+  if (prevOmegaD && dt > 1e-4) {
+    omegaDDot = omegaD.map((w, i) => clamp((w - prevOmegaD[i]) / dt, -30, 30));
+  }
   prevRd = Rd;
   prevT = t;
+  prevOmegaD = omegaD;
 
   const omegaDBody = mulMatVec(transpose(R), mulMatVec(Rd, omegaD));
+  const omegaDDotBody = mulMatVec(transpose(R), mulMatVec(Rd, omegaDDot));
   const eOmega = [omega[0] - omegaDBody[0], omega[1] - omegaDBody[1], omega[2] - omegaDBody[2]];
   const Jw = [J[0] * omega[0], J[1] * omega[1], J[2] * omega[2]];
+  const referenceCross = cross(omega, omegaDBody);
   const tau = [
-    clamp(-KR * eR[0] - KW * eOmega[0] + (omega[1] * Jw[2] - omega[2] * Jw[1]), -0.35, 0.35),
-    clamp(-KR * eR[1] - KW * eOmega[1] + (omega[2] * Jw[0] - omega[0] * Jw[2]), -0.35, 0.35),
-    clamp(-KR * eR[2] - KW * eOmega[2] + (omega[0] * Jw[1] - omega[1] * Jw[0]), -0.25, 0.25),
+    clamp(-KR * eR[0] - KW * eOmega[0] + (omega[1] * Jw[2] - omega[2] * Jw[1]) - J[0] * (referenceCross[0] - omegaDDotBody[0]), -0.35, 0.35),
+    clamp(-KR * eR[1] - KW * eOmega[1] + (omega[2] * Jw[0] - omega[0] * Jw[2]) - J[1] * (referenceCross[1] - omegaDDotBody[1]), -0.35, 0.35),
+    clamp(-KR * eR[2] - KW * eOmega[2] + (omega[0] * Jw[1] - omega[1] * Jw[0]) - J[2] * (referenceCross[2] - omegaDDotBody[2]), -0.25, 0.25),
   ];
 
   const tilt = Math.acos(clamp(normalize(Fd)[2], -1, 1));

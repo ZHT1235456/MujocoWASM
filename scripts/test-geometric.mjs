@@ -41,6 +41,13 @@ assert(
 );
 console.log('ok wrench allocation', allocatedWrench.map((v) => +v.toFixed(3)));
 
+const saturatedYawWrench = motorWrench(mix(MASS * GRAVITY, [0, 0, 0.25]));
+assert(Math.abs(saturatedYawWrench[0] - MASS * GRAVITY) < 1e-9, `yaw saturation changed thrust ${saturatedYawWrench}`);
+assert(Math.abs(saturatedYawWrench[1]) < 1e-9, `yaw saturation caused roll ${saturatedYawWrench}`);
+assert(Math.abs(saturatedYawWrench[2]) < 1e-9, `yaw saturation caused pitch ${saturatedYawWrench}`);
+assert(saturatedYawWrench[3] > 0 && saturatedYawWrench[3] < 0.25, `yaw saturation was not bounded ${saturatedYawWrench}`);
+console.log('ok priority saturation', saturatedYawWrench.map((v) => +v.toFixed(3)));
+
 resetGeometric();
 const rolled = hoverState();
 rolled.quat = rotX(0.2);
