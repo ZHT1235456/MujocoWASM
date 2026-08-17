@@ -1,0 +1,23 @@
+<!-- 由 src/world.js 的 buildMjcf() 在运行时生成；此文件便于查阅默认场景。 -->
+<mujoco model="quadrotor_corridor">
+  <compiler angle="radian" inertiafromgeom="true"/>
+  <option timestep="0.002" gravity="0 0 -9.81" integrator="RK4"/>
+  <worldbody>
+    <geom name="floor" type="plane" size="20 20 0.1" rgba="0.12 0.14 0.18 1"/>
+    <body name="drone" pos="-8 8 1.4">
+      <freejoint name="root"/>
+      <inertial pos="0 0 0" mass="0.85" diaginertia="0.014 0.014 0.022"/>
+      <geom name="drone_col" type="sphere" size="0.28" rgba="1 1 1 0" mass="0"/>
+      <site name="thrust1" pos="0.1378  -0.0932 -0.0080" size="0.01"/>
+      <site name="thrust2" pos="-0.1378  0.1413 -0.0080" size="0.01"/>
+      <site name="thrust3" pos="-0.1378 -0.0932 -0.0080" size="0.01"/>
+      <site name="thrust4" pos="0.1378  0.1413 -0.0080" size="0.01"/>
+    </body>
+  </worldbody>
+  <actuator>
+    <motor name="m1" site="thrust1" gear="0 0 1 0 0 0.018" ctrllimited="true" ctrlrange="0 8"/>
+    <motor name="m2" site="thrust2" gear="0 0 1 0 0 0.018" ctrllimited="true" ctrlrange="0 8"/>
+    <motor name="m3" site="thrust3" gear="0 0 1 0 0 -0.018" ctrllimited="true" ctrlrange="0 8"/>
+    <motor name="m4" site="thrust4" gear="0 0 1 0 0 -0.018" ctrllimited="true" ctrlrange="0 8"/>
+  </actuator>
+</mujoco>

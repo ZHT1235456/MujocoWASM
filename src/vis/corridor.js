@@ -1,0 +1,122 @@
+import * as THREE from 'three';
+import { toVec3 } from '../plan/collide.js';
+
+export function createCorridorView(scene) {
+  const group = new THREE.Group();
+  group.name = 'corridorView';
+  scene.add(group);
+  return group;
+}
+
+function disposeGroup(group) {
+  const doomed = [...group.children];
+  for (const child of doomed) {
+    group.remove(child);
+    child.traverse((obj) => {
+      if (obj.geometry) obj.geometry.dispose();
+      if (obj.material) {
+        if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose());
+        else obj.material.dispose();
+      }
+    });
+  }
+}
+
+export function drawTree(group, nodes, visible) {
+  const old = group.getObjectByName('rrtTree');
+  if (old) {
+    group.remove(old);
+    old.geometry?.dispose();
+    old.material?.dispose();
+  }
+  if (!visible || !nodes?.length) return;
+  const positions = [];
+  for (const node of nodes) {
+    if (node.parent < 0) continue;
+    const a = node.p;
+    const b = nodes[node.parent].p;
+    positions.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  const line = new THREE.LineSegments(
+    geo,
+    new THREE.LineBasicMaterial({ color: 0x4d6d8c, transparent: true, opacity: 0.28 })
+  );
+  line.name = 'rrtTree';
+  group.add(line);
+}
+
+export function drawCorridor(group, samples, radii, options = {}) {
+  disposeGroup(group);
+  if (!samples || samples.length < 2) return;
+
+  const showCenter = options.centerline !== false;
+  const showTube = options.corridor !== false;
+  const violated = options.violated ?? false;
+  const tubeColor = violated ? 0xd64545 : 0x3ec7c2;
+
+  if (showCenter) {
+    const pts = samples.map(toVec3);
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(curve.getPoints(Math.min(400, samples.length * 2))),
+      new THREE.LineBasicMaterial({ color: 0xf7941e })
+    );
+    line.name = 'centerline';
+    group.add(line);
+  }
+
+  if (showTube) {
+    const pts = samples.map(toVec3);
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const meanR = radii.reduce((a, b) => a + b, 0) / radii.length;
+    const tube = new THREE.Mesh(
+      new THREE.TubeGeometry(curve, Math.min(240, samples.length), Math.max(0.12, meanR * 0.92), 14, false),
+      new THREE.MeshPhysicalMaterial({
+        color: tubeColor,
+        transparent: true,
+        opacity: 0.16,
+        roughness: 0.35,
+        metalness: 0.05,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      })
+    );
+    tube.name = 'tube';
+    group.add(tube);
+
+    for (let i = 0; i < samples.length; i += Math.max(1, Math.floor(samples.length / 18))) {
+      const tangent = new THREE.Vector3();
+      if (i < samples.length - 1) {
+        tangent.set(
+          samples[i + 1][0] - samples[i][0],
+          samples[i + 1][1] - samples[i][1],
+          samples[i + 1][2] - samples[i][2]
+        ).normalize();
+      } else {
+        tangent.set(
+          samples[i][0] - samples[i - 1][0],
+          samples[i][1] - samples[i - 1][1],
+          samples[i][2] - samples[i - 1][2]
+        ).normalize();
+      }
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(radii[i], 0.012, 8, 28),
+        new THREE.MeshBasicMaterial({ color: tubeColor, transparent: true, opacity: 0.55 })
+      );
+      ring.position.set(...samples[i]);
+      ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
+      group.add(ring);
+    }
+  }
+}
+
+export function setCorridorViolated(group, violated) {
+  const color = violated ? 0xd64545 : 0x3ec7c2;
+  group.traverse((obj) => {
+    if (obj.material && obj.name !== 'centerline') {
+      if (obj.material.color) obj.material.color.setHex(color);
+    }
+  });
+}
