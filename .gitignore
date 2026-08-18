@@ -2,3 +2,13 @@ node_modules
 dist
 .DS_Store
 *.log
+src-tauri/target
+src-tauri/gen
+docs/*.aux
+docs/*.out
+docs/*.toc
+docs/*.bbl
+docs/*.blg
+docs/*.synctex.gz
+docs/*.fdb_latexmk
+docs/*.fls

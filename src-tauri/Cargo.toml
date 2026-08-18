@@ -1,0 +1,27 @@
+[package]
+name = "drone-corridor"
+version = "0.1.0"
+description = "四旋翼安全走廊 MuJoCo WASM 仿真"
+authors = ["you"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "app_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", default-features = false , features = [] }
+
+[dependencies]
+tauri = { version = "2.11.3", default-features = false, features = ["wry", "compression", "common-controls-v6"] }
+
+[profile.dev]
+incremental = true
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "z"
+panic = "abort"
+strip = true

@@ -29,6 +29,9 @@ const { drone, body, axes } = createDroneVisual(scene);
 const corridorGroup = createCorridorView(scene);
 
 const clock = new THREE.Clock();
+const MAX_TUBE_SPEED = 4;
+const TUBE_SPEED_SCALE = 0.9;
+const MAX_TUBE_ATTEMPTS = 5;
 const followTailOffset = new THREE.Vector3(0, 0.72, -1.9);
 const followLookOffset = new THREE.Vector3(0, 0.08, 0.72);
 const followPosition = new THREE.Vector3();
@@ -51,7 +54,7 @@ const app = {
   planResult: null,
   show: { corridor: true, centerline: true, tree: false, wire: false, axes: false },
   t: 0,
-  speed: 4,
+  speed: 5,
   violations: 0,
   corridorOutsideFrames: 0,
   corridorInsideFrames: 0,
@@ -216,24 +219,57 @@ app.plan = async (start, goal, opts) => {
   currentStartGoal(start, goal);
   await waitFrame();
   try {
-    const planned = await planSafeTube(start, goal, {
-      nv: opts.iters,
-      margin0: opts.rMax,
-      alphaV: opts.speed ?? app.speed,
-      yieldFn: waitFrame,
-    });
-    if (!planned.ok || planned.boxes.length < 2) {
-      setStatus(planned.message || '规划失败：请增加采样次数或减小跟踪裕度');
-      app.planResult = { nodes: planned.nodes, samples: [], radii: [], boxes: [], violated: false };
-      redrawPath();
-      return;
+    const requestedSpeed = opts.speed ?? app.speed;
+    let tubeSpeed = Math.min(requestedSpeed, MAX_TUBE_SPEED);
+    let planned = null;
+    let traj = null;
+    let lastTube = null;
+    let lastFailure = '规划失败：请增加采样次数或减小跟踪裕度';
+    let tubeAttempts = 0;
+
+    for (let attempt = 0; attempt < MAX_TUBE_ATTEMPTS; attempt++) {
+      tubeAttempts = attempt + 1;
+      setStatus(
+        attempt === 0
+          ? `正在运行 Algorithm 1（安全管速度 ${tubeSpeed.toFixed(1)} m/s）…`
+          : `LP 不可行，正以 ${tubeSpeed.toFixed(1)} m/s 重新生成安全管（${tubeAttempts}/${MAX_TUBE_ATTEMPTS}）…`
+      );
+      await waitFrame();
+
+      const candidate = await planSafeTube(start, goal, {
+        nv: opts.iters,
+        margin0: opts.rMax,
+        alphaV: tubeSpeed,
+        yieldFn: waitFrame,
+      });
+      if (!candidate.ok || candidate.boxes.length < 2) {
+        lastFailure = candidate.message || lastFailure;
+        tubeSpeed *= TUBE_SPEED_SCALE;
+        continue;
+      }
+
+      lastTube = candidate;
+      setStatus(`安全管已生成，正在以 vmax=${requestedSpeed.toFixed(1)} m/s 求解轨迹 LP…`);
+      await waitFrame();
+      const candidateTraj = await bezierLpInTube(candidate.boxes, {
+        np: 9,
+        vmax: [requestedSpeed, requestedSpeed, requestedSpeed],
+      });
+      if (candidateTraj.ok) {
+        planned = candidate;
+        traj = candidateTraj;
+        break;
+      }
+
+      lastFailure = candidateTraj.message || 'Algorithm 2 轨迹 LP 求解失败';
+      tubeSpeed *= TUBE_SPEED_SCALE;
     }
-    setStatus('安全管已生成，正在求解 Algorithm 2 轨迹 LP…');
-    await waitFrame();
-    const traj = await bezierLpInTube(planned.boxes, { np: 9 });
-    if (!traj.ok) {
-      setStatus(traj.message || 'Algorithm 2 轨迹 LP 求解失败');
-      app.planResult = { ...planned, samples: [], radii: [], violated: false };
+
+    if (!planned || !traj) {
+      setStatus(`自动降低安全管速度后仍未找到可行轨迹：${lastFailure}`);
+      app.planResult = lastTube
+        ? { ...lastTube, samples: [], radii: [], violated: false }
+        : { nodes: [], samples: [], radii: [], boxes: [], violated: false };
       redrawPath();
       return;
     }
@@ -251,6 +287,9 @@ app.plan = async (start, goal, opts) => {
       length: resampled.length,
       radii,
       minClearance: planned.minClearance,
+      requestedSpeed,
+      tubePlanningSpeed: planned.alphaV,
+      tubeAttempts,
       violated: false,
     };
     app.t = 0;
@@ -265,7 +304,10 @@ app.plan = async (start, goal, opts) => {
       time: 0,
       inside: '已规划',
     });
-    setStatus(`规划完成：${planned.boxes.length} 个安全盒，时长 ${planned.duration.toFixed(1)} s`);
+    setStatus(
+      `规划完成：${planned.boxes.length} 个安全盒，vmax ${requestedSpeed.toFixed(1)} m/s，安全管速度 ${planned.alphaV.toFixed(1)} m/s，时长 ${planned.duration.toFixed(1)} s`,
+      5000
+    );
   } finally {
     app.planning = false;
     setBusy(false);
@@ -397,7 +439,9 @@ function advanceTrajectory(simDt, ref) {
   const r = app.planResult;
   const pNow = [body.position.x, body.position.y, body.position.z];
   const err = Math.hypot(pNow[0] - ref.p[0], pNow[1] - ref.p[1], pNow[2] - ref.p[2]);
-  let scale = app.speed / Math.max(0.2, r.alphaV || 4);
+  // The LP trajectory is already parameterized in physical time.  Re-scaling
+  // it by the UI speed would invalidate the velocity and acceleration bounds.
+  let scale = 1;
   if (err > 0.55) scale *= 0.08;
   else if (err > 0.28) scale *= 0.35;
   app.t += Math.min(0.04, simDt) * scale;

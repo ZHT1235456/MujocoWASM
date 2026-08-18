@@ -77,9 +77,22 @@ export function bindPanel(app) {
   return { readStart, readGoal };
 }
 
-export function setStatus(text) {
+let statusHideTimer = null;
+
+export function setStatus(text, hideAfterMs = 0) {
   const el = document.getElementById('status');
-  if (el) el.textContent = text;
+  if (!el) return;
+  if (statusHideTimer) {
+    clearTimeout(statusHideTimer);
+    statusHideTimer = null;
+  }
+  el.textContent = text;
+  if (hideAfterMs > 0) {
+    statusHideTimer = setTimeout(() => {
+      el.textContent = '';
+      statusHideTimer = null;
+    }, hideAfterMs);
+  }
 }
 
 let pauseReady = false;

@@ -154,7 +154,11 @@ export async function bezierLpInTube(boxes, options = {}) {
   if (!boxes || boxes.length < 2) return { ok: false, segments: [], message: '安全管至少需要两个盒子' };
   const np = options.np ?? 9;
   const alphaS = options.alphaS ?? 0.9;
-  const maxAttempts = options.maxAttempts ?? 16;
+  // With alphaS = 0.9, 16 attempts only reach a 4.86x duration.  RRT tubes
+  // containing tight turns regularly need 6-10x before the C4 and dynamic
+  // constraints are simultaneously feasible.  Keep enough headroom for those
+  // valid tubes instead of reporting a false infeasibility at the old cutoff.
+  const maxAttempts = options.maxAttempts ?? 28;
   const solverOptions = {
     np,
     vmax: options.vmax ?? [2, 2, 2],
@@ -173,8 +177,17 @@ export async function bezierLpInTube(boxes, options = {}) {
       tmlim: 8,
     });
     if (solved.result.status === glpk.GLP_OPT || solved.result.status === glpk.GLP_FEAS) {
-      return extractTrajectory(solved.result.vars, boxes, durations, np, timeScale);
+      return {
+        ...extractTrajectory(solved.result.vars, boxes, durations, np, timeScale),
+        attempts: attempt + 1,
+      };
     }
   }
-  return { ok: false, segments: [], message: `Algorithm 2 LP 在 ${maxAttempts} 次时长缩放后仍不可行` };
+  const maxTimeScale = alphaS ** -(maxAttempts - 1);
+  return {
+    ok: false,
+    segments: [],
+    attempts: maxAttempts,
+    message: `Algorithm 2 LP 在 ${maxAttempts} 次尝试（最长 ${maxTimeScale.toFixed(1)} 倍时长）后仍不可行，请重新生成安全管`,
+  };
 }
