@@ -1,3 +1,12 @@
+function syncSliderFill(el) {
+  if (!el) return;
+  const min = Number(el.min);
+  const max = Number(el.max);
+  const value = Number(el.value);
+  const pct = max === min ? 0 : ((value - min) / (max - min)) * 100;
+  el.style.setProperty('--fill', `${pct}%`);
+}
+
 export function bindPanel(app) {
   const $ = (id) => document.getElementById(id);
 
@@ -12,16 +21,21 @@ export function bindPanel(app) {
     Number($('c-gz').value),
   ];
 
+  for (const id of ['c-iters', 'c-radius', 'c-speed']) syncSliderFill($(id));
+
   $('c-iters').addEventListener('input', () => {
     $('v-iters').textContent = $('c-iters').value;
+    syncSliderFill($('c-iters'));
     app.planningConfigChanged?.();
   });
   $('c-radius').addEventListener('input', () => {
     $('v-radius').textContent = `${(Number($('c-radius').value) / 100).toFixed(2)} m`;
+    syncSliderFill($('c-radius'));
     app.planningConfigChanged?.();
   });
   $('c-speed').addEventListener('input', () => {
     $('v-speed').textContent = `${(Number($('c-speed').value) / 10).toFixed(1)} m/s`;
+    syncSliderFill($('c-speed'));
     app.planningConfigChanged?.();
   });
 
@@ -68,6 +82,23 @@ export function setStatus(text) {
   if (el) el.textContent = text;
 }
 
+let pauseReady = false;
+let flyReady = false;
+
+export function setPauseEnabled(enabled) {
+  pauseReady = enabled;
+  const el = document.getElementById('c-pause');
+  const panel = document.getElementById('panel');
+  if (el) el.disabled = !enabled || !!panel?.classList.contains('is-busy');
+}
+
+export function setFlyEnabled(enabled) {
+  flyReady = enabled;
+  const el = document.getElementById('c-fly');
+  const panel = document.getElementById('panel');
+  if (el) el.disabled = !enabled || !!panel?.classList.contains('is-busy');
+}
+
 export function setBusy(busy, message = '正在规划路径…') {
   const overlay = document.getElementById('busy');
   const panel = document.getElementById('panel');
@@ -76,6 +107,14 @@ export function setBusy(busy, message = '正在规划路径…') {
   if (overlay) overlay.hidden = !busy;
   panel?.classList.toggle('is-busy', busy);
   for (const el of panel?.querySelectorAll('button, input') ?? []) {
+    if (el.id === 'c-pause') {
+      el.disabled = busy || !pauseReady;
+      continue;
+    }
+    if (el.id === 'c-fly') {
+      el.disabled = busy || !flyReady;
+      continue;
+    }
     const configLocked = panel.classList.contains('config-locked') && el.hasAttribute('data-config-control');
     el.disabled = busy || configLocked;
   }

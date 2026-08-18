@@ -12,7 +12,7 @@
         <canvas id="viewport"></canvas>
         <header id="titlecard">
           <h1>安全走廊仿真</h1>
-          <p>MuJoCo WASM · 安全超矩形管 · 几何跟踪</p>
+          <p>MuJoCo WASM 仿真</p>
           <dl id="metrics">
             <div><dt>路径长度</dt><dd id="m-length">—</dd></div>
             <div><dt>最小盒半宽</dt><dd id="m-clearance">—</dd></div>
@@ -26,7 +26,6 @@
             <span><kbd>左键</kbd>旋转</span>
             <span><kbd>滚轮</kbd>缩放</span>
             <span><kbd>右键</kbd>平移</span>
-            <span><kbd>V</kbd>导出视角</span>
           </footer>
         </div>
         <div id="busy" hidden>
@@ -43,8 +42,8 @@
         <h2>任务</h2>
         <div class="action-grid">
           <button id="c-plan" class="primary config-control" data-config-control>规划路径</button>
-          <button id="c-fly" class="accent">起飞跟踪</button>
-          <button id="c-pause">暂停</button>
+          <button id="c-fly" class="accent" disabled>起飞跟踪</button>
+          <button id="c-pause" disabled>暂停</button>
           <button id="c-reset">重置</button>
         </div>
       </section>
@@ -67,11 +66,11 @@
           <span id="config-lock-state">起飞后锁定</span>
         </div>
         <label class="slider">
-          <span>采样次数 Nv<em id="v-iters">5000</em></span>
+          <span>采样次数<em id="v-iters">5000</em></span>
           <input id="c-iters" class="config-control" data-config-control type="range" min="400" max="10000" step="100" value="5000" />
         </label>
         <label class="slider">
-          <span>跟踪裕度 Lp<em id="v-radius">0.18 m</em></span>
+          <span>跟踪裕度<em id="v-radius">0.18 m</em></span>
           <input id="c-radius" class="config-control" data-config-control type="range" min="8" max="40" value="18" />
         </label>
         <label class="slider">

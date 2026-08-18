@@ -18,7 +18,7 @@ import {
   spinProps,
 } from './vis/scene.js';
 import { createCorridorView, drawCorridor, drawTree, setCorridorViolated } from './vis/corridor.js';
-import { bindPanel, setStatus, setMetrics, clearPlanMetrics, setBusy, setConfigLocked, waitFrame } from './ui/panel.js';
+import { bindPanel, setStatus, setMetrics, clearPlanMetrics, setBusy, setConfigLocked, setPauseEnabled, setFlyEnabled, waitFrame } from './ui/panel.js';
 
 const canvas = document.getElementById('viewport');
 const renderer = createRenderer(canvas);
@@ -130,6 +130,8 @@ function invalidatePlan(message) {
   redrawPath();
   clearPlanMetrics();
   setConfigLocked(false);
+  setPauseEnabled(false);
+  setFlyEnabled(false);
   document.getElementById('c-pause').textContent = '暂停';
   setStatus(message);
 }
@@ -207,6 +209,8 @@ app.plan = async (start, goal, opts) => {
   app.paused = true;
   app.flying = false;
   app.holding = false;
+  setPauseEnabled(false);
+  setFlyEnabled(false);
   setBusy(true, '正在规划安全超矩形管…');
   setStatus('正在运行 Algorithm 1（安全管 RRT），请稍候…');
   currentStartGoal(start, goal);
@@ -253,6 +257,7 @@ app.plan = async (start, goal, opts) => {
     app.violations = 0;
     resetCorridorViolation();
     setConfigLocked(true);
+    setFlyEnabled(true);
     redrawPath();
     setMetrics({
       length: resampled.length,
@@ -331,12 +336,13 @@ app.fly = (speed) => {
   resetCorridorViolation();
   clock.getDelta();
   document.getElementById('c-pause').textContent = '暂停';
+  setPauseEnabled(true);
   setStatus('几何控制跟踪安全管');
   redrawPath();
 };
 
 app.togglePause = () => {
-  if (app.planning) return;
+  if (app.planning || !app.flying) return;
   app.paused = !app.paused;
   document.getElementById('c-pause').textContent = app.paused ? '继续' : '暂停';
   setStatus(app.paused ? '已暂停' : '仿真运行中');
@@ -359,6 +365,7 @@ app.reset = (start) => {
   app.violations = 0;
   app.thrusts = hoverThrusts();
   setConfigLocked(false);
+  setPauseEnabled(false);
   resetGeometric();
   resetCorridorViolation();
   document.getElementById('c-pause').textContent = '暂停';
