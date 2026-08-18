@@ -60,11 +60,27 @@
   morestring=[b]`
 }
 
-\title{\heiti\Huge 基于Three.js与Mujoco WASM的无人机安全走廊仿真}
+\title{基于Three.js与Mujoco WASM的无人机安全走廊仿真}
 \author{
   朱华天 \quad Grok~4.6 \quad GPT~5.6~Sol
 }
 \date{2026年8月18日}
+
+\makeatletter
+\renewcommand{\@maketitle}{%
+  \newpage
+  \null
+  \vskip 2em%
+  \begin{center}%
+    {\Huge\songti\mdseries \@title \par}%
+    \vskip 1.5em%
+    {\large\songti\mdseries \@author \par}%
+    \vskip 1em%
+    {\large \@date \par}%
+  \end{center}%
+  \par
+  \vskip 1.5em}
+\makeatother
 
 \begin{document}
 \maketitle
@@ -78,7 +94,7 @@
 \vspace{0.4em}
 \begin{abstract}
 \noindent
-本文记录一项面向浏览器的四旋翼安全走廊仿真实验：在获悉 Google DeepMind 已将 MuJoCo 物理引擎编译为 WebAssembly 之后，作者尝试把它与 Three.js 的实时三维渲染结合起来，做成可在网页中交互运行、也可经 Tauri~2 打包为桌面程序的仿真软件。问题定位来自近期阅读的 IEEE TAC 论文\cite{serry2026reachavoid}：在杂乱障碍环境中为四旋翼构造计及跟踪误差的安全超矩形管，再在管内用 B\'ezier 曲线与线性规划生成名义轨迹，并以几何跟踪控制驱动机体沿管飞行。前端由 Grok~4.6 开发，GPT~5.6~Sol 负责缺陷修复，Composer~2.5 完成 Tauri~2 桌面封装。本文依次介绍 Three.js 与 MuJoCo WASM 的官方定位、安全走廊方法、代码目录、人机协作流程，并给出在本地网页中实际操作后截取的界面。
+本文记录一项面向浏览器的四旋翼安全走廊仿真实验：在获悉 Google DeepMind 已将 MuJoCo 物理引擎编译为 WebAssembly 之后，作者尝试把它与 Three.js 的实时三维渲染结合起来，做成可在网页中交互运行、也可经 Tauri~2 打包为桌面程序的仿真软件。问题定位来自近期阅读的 IEEE TAC 论文\cite{serry2026reachavoid}：在杂乱障碍环境中为四旋翼构造计及跟踪误差的安全超矩形管，再在管内用 B\'ezier 曲线与线性规划生成名义轨迹，并以几何跟踪控制驱动机体沿管飞行。前端由 Grok~4.6 开发，GPT~5.6~Sol 负责缺陷修复，Composer~2.5 完成 Tauri~2 桌面封装。本文依次介绍 Three.js 与 MuJoCo WASM 的官方定位、安全走廊方法、代码目录、模型协作分工，并给出在本地网页中实际操作后截取的界面。
 \end{abstract}
 
 \section{引言}
@@ -87,16 +103,16 @@
 
 Serry、Yuan、Chang 与 Liu 在 \emph{IEEE Transactions on Automatic Control} 上的工作\cite{serry2026reachavoid}针对这一问题提出了一条可计算的路径：先对几何跟踪控制做闭环稳定性再分析，得到与具体轨迹弱相关、可写成闭式的时变跟踪误差界；再把该误差界嵌入采样规划，用超矩形安全集构造一条``安全管''（safe tube / corridor）；最后在管内用分段 B\'ezier 曲线与启发式线性规划合成名义轨迹。这样，只要初始状态落在相应的相对内点集合内、且轨迹满足若干易检验的条件，位置、速度与推力约束便具有形式化保证。
 
-笔者在了解到 MuJoCo 已提供官方 WASM 绑定\cite{mujoco-wasm}之后，产生了一个很直接的想法：物理步进可以完全在浏览器里完成，视觉层则不必再依赖 MuJoCo 自带的 OpenGL 窗口，而可以用 Three.js 做出更接近产品原型的场景。于是本仓库把论文中的规划--跟踪流水线接到网页前端，四旋翼外观沿用 \texttt{reference/} 中按三视图标定的机体模型，动力学则由 \texttt{@mujoco/mujoco} 在 WASM 中积分。目标不是复现论文中全部定理证明，而是把``安全走廊''做成可看见、可调节、可打包的仿真器。
+笔者在了解到 MuJoCo 已提供官方 WASM 绑定\cite{mujoco-wasm}之后，产生了一个很直接的想法：物理步进可以在浏览器里完成，视觉层则交给 Three.js 去画更接近产品原型的场景。于是本仓库把论文中的规划--跟踪流水线接到网页前端，四旋翼外观沿用 \texttt{reference/} 中按三视图标定的机体模型，动力学则由 \texttt{@mujoco/mujoco} 在 WASM 中积分。本文把``安全走廊''做成可看见、可调节、可打包的仿真器，对论文中的定理证明只作工程化近似。
 
-后文安排如下。第~\ref{sec:three}~节与第~\ref{sec:mujoco}~节分别依据官方文档介绍 Three.js 与 MuJoCo WASM；第~\ref{sec:method}~节概述安全走廊方法；第~\ref{sec:impl}~节说明仿真实现、人机协作分工与代码目录；第~\ref{sec:ui}~节给出实际操作截图；第~\ref{sec:tauri}~节简述桌面打包；最后给出结语与参考文献。
+后文安排如下。第~\ref{sec:three}~节与第~\ref{sec:mujoco}~节分别依据官方文档介绍 Three.js 与 MuJoCo WASM；第~\ref{sec:method}~节概述安全走廊方法；第~\ref{sec:impl}~节说明仿真实现、模型协作分工与代码目录；第~\ref{sec:ui}~节给出实际操作截图；第~\ref{sec:tauri}~节简述桌面打包与软件体积；最后给出结语与参考文献。
 
 \section{Three.js：把三维内容放到网页上}
 \label{sec:three}
 
 Three.js 是一套开源的 JavaScript 三维库，官方站点与手册见 \url{https://threejs.org/} 与 \url{https://threejs.org/manual/}\cite{threejs,threejs-manual}。其 GitHub 仓库开宗明义地写道：项目目标是提供\emph{易用、轻量、跨浏览器、通用}的三维库；当前主构建包含 WebGL 与 WebGPU 渲染器，SVG 与 CSS3D 渲染器则以插件形式提供。
 
-官方手册 \emph{Fundamentals} 特别澄清了一个常见混淆：Three.js 经常被等同于 WebGL，但二者并非同一层抽象。WebGL 只绘制点、线与三角形，要做出可用的三维应用通常需要大量样板代码；Three.js 则把场景、灯光、阴影、材质、纹理以及三维数学封装起来。一个最小应用的骨架可以概括为：
+官方手册 \emph{Fundamentals} 指出，Three.js 与 WebGL 处于不同抽象层。WebGL 只绘制点、线与三角形，写出可用的三维应用通常需要大量样板代码；Three.js 把场景、灯光、阴影、材质、纹理以及三维数学封装起来。一个最小应用的骨架可以概括为：
 
 \begin{enumerate}
   \item 用 \texttt{WebGLRenderer}（或 \texttt{WebGPURenderer}）把场景画到 \texttt{<canvas>}；
@@ -112,7 +128,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 \end{lstlisting}
 
-本仿真正是按这一路径组织视觉层的。文件 \texttt{src/vis/scene.js} 创建带软阴影的 \texttt{WebGLRenderer}、ACES 色调映射、半球光与方向光，并用 \texttt{OrbitControls} 提供左键旋转、滚轮缩放、右键平移。四旋翼网格并不在视觉模块里临时拼立方体，而是从目录 \texttt{reference/drone} 引入按实机三视图标定的机身、折叠臂、桨叶与云台。走廊、中心线、RRT 树则是另一组半透明网格，由规划结果驱动，与物理引擎解耦。这种``物理在 WASM、外观在 Three.js''的切分，正是选用该库的原因：它让浏览器里的科研原型也能拥有接近产品演示的光照与材质，而不必把 MuJoCo 原生 GUI 嵌进网页。
+本仿真正是按这一路径组织视觉层的。文件 \texttt{src/vis/scene.js} 创建带软阴影的 \texttt{WebGLRenderer}、ACES 色调映射、半球光与方向光，并用 \texttt{OrbitControls} 提供左键旋转、滚轮缩放、右键平移。四旋翼网格来自目录 \texttt{reference/drone} 中按实机三视图标定的机身、折叠臂、桨叶与云台。走廊、中心线、RRT 树是另一组半透明网格，由规划结果驱动，与物理引擎解耦。``物理在 WASM、外观在 Three.js''这一切分，使浏览器里的科研原型也能拥有接近产品演示的光照与材质。
 
 \section{MuJoCo 与官方 WASM 绑定}
 \label{sec:mujoco}
@@ -135,7 +151,9 @@ import loadMujoco from '@mujoco/mujoco';
 import wasmUrl from '@mujoco/mujoco/mujoco.wasm?url';
 \end{lstlisting}
 
-加载引擎，再以 \texttt{MjModel.from\_xml\_string}（或回退到虚拟文件系统上的 \texttt{loadFromXML}）从运行时生成的 MJCF 构造 \texttt{MjModel}/\texttt{MjData}，每帧按渲染步长循环调用 \texttt{mj\_step}。四旋翼以 \texttt{freejoint} 置于世界中，四个电机是作用在旋翼站点上的 \texttt{motor} 执行器：推力沿机体 $z$，偏航力矩由齿轮系数给出。障碍物是与视觉场景共用的轴对齐盒子。于是，浏览器里看到的机体运动并不是关键帧动画，而是 WASM 中的刚体动力学积分。
+加载引擎，再以 \texttt{MjModel.from\_xml\_string}（或回退到虚拟文件系统上的 \texttt{loadFromXML}）从运行时生成的 MJCF 构造 \texttt{MjModel}/\texttt{MjData}，每帧按渲染步长循环调用 \texttt{mj\_step}。四旋翼以 \texttt{freejoint} 置于世界中，四个电机是作用在旋翼站点上的 \texttt{motor} 执行器：推力沿机体 $z$，偏航力矩由齿轮系数给出。障碍物是与视觉场景共用的轴对齐盒子。浏览器里看到的机体运动，由 WASM 中的刚体动力学积分驱动。
+
+MuJoCo 的原生运行时是 C/C++ 库，官方 Python 绑定也已长期用于论文复现与批处理实验。若走 Python 路线，物理步进与可视化通常落在本地解释器、pip 环境以及 MuJoCo 自带查看器（或 Matplotlib）上，分享时对方需要装同一套依赖；若直接调用 C++ API，则需本机编译工具链，交付物是各平台各自的本地可执行文件。本项目希望同一份前端既能在浏览器里打开，也能经 Tauri 打成桌面程序，因此选用官方 WASM 绑定：核心引擎仍是那份 C/C++ 实现，经 Emscripten 编译后由 JavaScript 调用，运行环境收束为一个现代浏览器或系统 WebView。
 
 \section{安全走廊：从形式化保证到可交互仿真}
 \label{sec:method}
@@ -149,7 +167,7 @@ import wasmUrl from '@mujoco/mujoco/mujoco.wasm?url';
 \dot{R}&=R\hat{\omega}, &
 \dot{\omega}&=J^{-1}(-\omega\times J\omega+\tau).
 \end{align}
-到达--避障任务要求存在有限时间 $T$，使位置始终位于 $\mathcal{X}_{\mathrm{o}}\setminus\mathcal{X}_{\mathrm{u}}$，速度与推力满足给定盒约束，且 $p(T)\in\mathcal{X}_{\mathrm{t}}$。论文强调：保证必须覆盖一个含名义初值于其相对内部的初始集合，而不能只对``精确落在名义轨迹上''的那一条解成立。
+到达--避障任务要求存在有限时间 $T$，使位置始终位于 $\mathcal{X}_{\mathrm{o}}\setminus\mathcal{X}_{\mathrm{u}}$，速度与推力满足给定盒约束，且 $p(T)\in\mathcal{X}_{\mathrm{t}}$。论文强调：保证须覆盖一个含名义初值于其相对内部的初始集合，即名义轨迹附近的一整族解都要满足安全约束。
 
 \subsection{几何跟踪与时变误差界}
 
@@ -166,7 +184,7 @@ F_d&=-k_p e_p-k_v e_v+mge_3+m\ddot{p}_d, \\
 \[
 \ell(t)=\ell_0\exp(-\lambda t)
 \]
-近似论文中的时变界，作为超矩形安全集计算的垫层，而不是把论文全部 Lyapunov 估计原样搬进浏览器。
+近似论文中的时变界，作为超矩形安全集计算的垫层。论文中的 Lyapunov 估计仍以原文为准，浏览器侧只保留这一便于计算的指数形式。
 
 \subsection{超矩形安全管与管内 B\'ezier--LP}
 
@@ -185,7 +203,7 @@ F_d&=-k_p e_p-k_v e_v+mge_3+m\ddot{p}_d, \\
 
 起飞后，\texttt{src/main.js} 按仿真时间在分段 B\'ezier 上取值，把位置、速度、加速度送给几何控制器；MuJoCo 以 $2\,\mathrm{ms}$ 步长、RK4 积分推进刚体。HUD 用若干帧确认机体是否仍在当前盒子内，避免单帧数值抖动造成误报。
 
-\section{系统设计与人机协作实现}
+\section{系统设计与模型分工}
 \label{sec:impl}
 
 \subsection{总体架构}
@@ -215,20 +233,17 @@ Three.js 同步位姿
 
 \subsection{四旋翼外观模型}
 
-视觉机体来自仓库 \texttt{reference/drone}。该模块最初是独立的 Three.js 建模练习：以机身全长 $183\,\mathrm{mm}$ 为标定基准，从三视图像素量测电机间距、桨盘直径、前后臂后掠角与云台尺寸，再拆成 \texttt{fuselage.js}、\texttt{arm.js}、\texttt{propeller.js}、\texttt{gimbal.js} 装配。机体坐标系取 $+X$ 右、$+Y$ 上、$+Z$ 机头，原点在机身包络几何中心。Vite 把 \texttt{@drone} 别名指向该目录，仿真场景直接 \texttt{createDrone()}，并按电机转速旋转桨叶。物理侧并不使用这些三角面做碰撞，而是用半径 $0.28\,\mathrm{m}$ 的球体近似包络，以免 MJCF 过重；电机站点坐标则与视觉模型中的电机轴心对齐，保证混控力臂与画面一致。
+视觉机体来自仓库 \texttt{reference/drone}。该模块最初是独立的 Three.js 建模练习：以机身全长 $183\,\mathrm{mm}$ 为标定基准，从三视图像素量测电机间距、桨盘直径、前后臂后掠角与云台尺寸，再拆成 \texttt{fuselage.js}、\texttt{arm.js}、\texttt{propeller.js}、\texttt{gimbal.js} 装配。机体坐标系取 $+X$ 右、$+Y$ 上、$+Z$ 机头，原点在机身包络几何中心。Vite 把 \texttt{@drone} 别名指向该目录，仿真场景直接 \texttt{createDrone()}，并按电机转速旋转桨叶。物理侧用半径 $0.28\,\mathrm{m}$ 的球体作为碰撞包络，以减轻 MJCF 负担；外形三角面只参与显示。电机站点坐标与视觉模型中的电机轴心对齐，保证混控力臂与画面一致。
 
-\subsection{人机协作分工}
+\subsection{模型分工}
 
-本项目是一次有意识的人机协作，而不是``单一模型从头写到尾''：
+开发按模型能力拆开，仓库提交也大致沿``实现 $\rightarrow$ 修复 $\rightarrow$ 交互打磨 $\rightarrow$ 桌面打包''排列：
 
 \begin{itemize}
-  \item \textbf{朱华天}：提出``MuJoCo WASM $+$ Three.js $+$ TAC 安全走廊''的问题定位，提供论文与机体建模参考，把握交互语义（规划后才允许起飞、走廊违约需消抖、默认俯视相机等）。
-  \item \textbf{Grok~4.6}：负责前端主体——页面结构、Three.js 场景、规划可视化、面板绑定、以及把论文算法改写成可在浏览器中运行的 JavaScript 模块。
-  \item \textbf{GPT~5.6~Sol}：负责缺陷修复。实际过程中出现过电机分配符号错误、B\'ezier--LP 过早报不可行、桨叶被深度测试裁掉、走廊违约闪烁等问题，均在后续提交中逐项修正。
+  \item \textbf{Grok~4.6}：前端主体——页面结构、Three.js 场景、规划可视化、面板绑定，以及把论文算法改写成可在浏览器中运行的 JavaScript 模块。
+  \item \textbf{GPT~5.6~Sol}：缺陷修复。实际过程中出现过电机分配符号错误、B\'ezier--LP 过早报不可行、桨叶被深度测试裁掉、走廊违约闪烁等问题，均在后续提交中逐项修正。
   \item \textbf{Composer~2.5}：在前端可运行之后，用 Tauri~2 把同一套 Vite 应用封装为 Windows 桌面程序（NSIS 安装包），并配置跨源隔离响应头，使 WASM 在 WebView2 中与浏览器行为一致。
 \end{itemize}
-
-这种分工对应三类不同的能力：算法与场景的产品判断、大规模前端实现、以及针对具体失效模式的修补与工程封装。仓库的提交历史大致也按``实现 $\rightarrow$ 修复 $\rightarrow$ 交互打磨 $\rightarrow$ 桌面打包''排列。
 
 \subsection{代码目录结构}
 
@@ -310,20 +325,22 @@ Three.js 同步位姿
 \label{fig:follow}
 \end{figure}
 
-上述操作并未改动默认起终点（起点 $(-8,1.4,-8)$，终点 $(8,1.8,8)$）与默认采样次数 $5000$。交互上还有两点值得记下：规划与飞行期间会锁定起终点和采样滑条，以免中途改参数造成管与控制器不一致；走廊违约不是单帧越界就变红，而是连续若干帧确认后才改写 HUD，避免数值抖动造成误报。
+上述操作并未改动默认起终点（起点 $(-8,1.4,-8)$，终点 $(8,1.8,8)$）与默认采样次数 $5000$。交互上还有两点值得记下：规划与飞行期间会锁定起终点和采样滑条，以免中途改参数造成管与控制器不一致；走廊违约需连续若干帧确认后才改写 HUD，以免数值抖动造成误报。
 
 \section{用 Tauri~2 打包桌面程序}
 \label{sec:tauri}
 
-网页可以满足演示，但科研现场往往希望``双击即开''。Tauri~2 的官方说明\cite{tauri2}将其定位为：用系统自带的 WebView 构建体积小、启动快的桌面与移动应用，前端可以是任何能编译为 HTML/CSS/JS 的技术，后端按需使用 Rust。与把完整浏览器内核打进安装包的方案相比，Tauri 在 Windows 上使用 WebView2，因而安装包主要包含应用资源而非 Chromium。
+网页可以满足演示，科研现场往往还希望``双击即开''。Tauri~2 的官方说明\cite{tauri2}将其定位为：用系统自带的 WebView 构建体积小、启动快的桌面与移动应用，前端可以是任何能编译为 HTML/CSS/JS 的技术，后端按需使用 Rust。Windows 上它使用 WebView2，安装包主要包含应用自身的前端资源与 Rust 壳程序，WebView 由操作系统提供。
 
 \texttt{src-tauri/} 中的配置把产品名设为``安全走廊仿真''，开发期把窗口指到 Vite 的 \texttt{http://localhost:5173}，发布期加载 \texttt{dist/}。为了让 WebView 与浏览器一样能加载 MuJoCo WASM，\texttt{tauri.conf.json} 同样下发 COOP/COEP 响应头。打包目标当前为 Windows NSIS。相关 npm 脚本为 \texttt{npm run tauri:dev} 与 \texttt{npm run tauri:build}。这一层由 Composer~2.5 完成，前端代码无需为桌面单独分叉。
 
+体积也是这一技术栈的直接结果。Vite 生产构建后的 \texttt{dist/} 约 10.6~MB，其中 \texttt{mujoco.wasm} 约 9.65~MB，Three.js 与业务脚本合计约 0.9~MB。本机实测 \texttt{drone-corridor.exe} 约 4.7~MB，NSIS 安装包经 LZMA 压缩后约 3.3~MB。官方文档称最小 Tauri 应用可以小于 600~KB\cite{tauri2}；本软件的体量几乎全部来自那份 WASM 物理引擎。常见 Electron 应用会随安装包携带完整 Chromium，体量往往达到数十至上百 MB；Python 方案若计入解释器、NumPy 与 MuJoCo 本体，部署目录通常也明显更重。WASM 加系统 WebView，把能跑 MuJoCo 的四旋翼演示收成一个可随仓库分发的小安装包。
+
 \section{结语}
 
-这篇短文记录的不是又一份``用新框架重写四旋翼仿真''的清单，而是一次把三件事情接起来的实验：MuJoCo 官方 WASM 使物理引擎第一次可以不经本地插件出现在网页里；Three.js 把科研场景从调试 GUI 提升到可演示的三维产品；IEEE TAC 的安全走廊工作\cite{serry2026reachavoid}则为``在障碍中飞过去''提供了比纯几何绕障更硬的安全语义。人机协作在这里的分工也很清楚：人负责把论文读成可做的产品边界，Grok~4.6 铺开前端与算法模块，GPT~5.6~Sol 对着具体失效模式修，Composer~2.5 把同一套页面送进 Tauri 窗口。
+本文把三件事情接到同一份可运行的前端上：MuJoCo 官方 WASM 让物理引擎出现在网页里；Three.js 把科研场景做成可演示的三维界面；IEEE TAC 的安全走廊工作\cite{serry2026reachavoid}为``在障碍中飞过去''提供了计及跟踪误差的安全语义。模型分工同样清楚：Grok~4.6 铺开前端与算法模块，GPT~5.6~Sol 对着具体失效模式修改，Composer~2.5 把同一套页面送进 Tauri 窗口。
 
-当前实现仍是论文方法的工程近似。时变误差界被写成指数裕度，超矩形与 LP 约束针对浏览器算力做了裁剪，碰撞包络是球体而非真实外形。若继续往前走，可以把文献中的闭式界与奇异回避条件更严格地搬进 \texttt{src/plan}，并用脚本批量统计越管率、跟踪误差包络是否被界罩住。那些工作同样适合继续以人机协作的方式进行：人盯住定义是否还叫``安全''，模型负责把定义写成能在 WASM 与 WebGL 里跑起来的代码。
+当前实现仍是论文方法的工程近似。时变误差界被写成指数裕度，超矩形与 LP 约束针对浏览器算力做了裁剪，碰撞包络取球体，外形网格仅用于显示。后续可以把文献中的闭式界与奇异回避条件更严格地搬进 \texttt{src/plan}，并用脚本批量统计越管率、跟踪误差包络是否被界罩住。那些工作仍适合按模型分工推进：把``安全''的定义写成能在 WASM 与 WebGL 里跑起来的代码。
 
 源码与本文所用截图见：
 \begin{center}

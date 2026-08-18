@@ -71,6 +71,10 @@ xelatex main.tex
 | 构建 | Vite 6 | ESM、WASM 资源、COOP/COEP |
 | 桌面 | Tauri 2 | WebView2 + NSIS |
 
+MuJoCo 原生是 C/C++，Python 绑定也适合论文复现和批处理。本仓库走官方 WASM，是为了同一份前端既能在浏览器里打开，也能经 Tauri 打成桌面程序：核心引擎仍是那份 C/C++ 实现，经 Emscripten 编译后由 JavaScript 调用，运行环境收束为一个现代浏览器或系统 WebView。
+
+体积也来自这一选择。Vite 生产构建后的 `dist/` 约 10.6 MB，其中 `mujoco.wasm` 约 9.65 MB，Three.js 与业务脚本合计约 0.9 MB。本机 `drone-corridor.exe` 约 4.7 MB，NSIS 安装包经 LZMA 压缩后约 3.3 MB。安装包几乎全部重量来自 WASM 物理引擎；Windows 上的 WebView2 由系统提供，不随包携带 Chromium。
+
 ## 目录
 
 ```
@@ -92,9 +96,8 @@ xelatex main.tex
 └── docs/                   LaTeX 文档与截图
 ```
 
-## 人机协作
+## 模型分工
 
-- **朱华天**：问题定位（WASM 物理 + Three.js 视觉 + TAC 安全走廊），提供论文与机体建模参考。
 - **Grok 4.6**：前端与规划–跟踪流水线。
 - **GPT 5.6 Sol**：缺陷修复（混控、LP 可行性、桨叶可见性、违约消抖等）。
 - **Composer 2.5**：Tauri 2 打包。
