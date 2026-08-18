@@ -51,7 +51,7 @@ const app = {
   planResult: null,
   show: { corridor: true, centerline: true, tree: false, wire: false, axes: false },
   t: 0,
-  speed: 1.6,
+  speed: 5,
   violations: 0,
   corridorOutsideFrames: 0,
   corridorInsideFrames: 0,
@@ -390,7 +390,7 @@ function advanceTrajectory(simDt, ref) {
   const r = app.planResult;
   const pNow = [body.position.x, body.position.y, body.position.z];
   const err = Math.hypot(pNow[0] - ref.p[0], pNow[1] - ref.p[1], pNow[2] - ref.p[2]);
-  let scale = app.speed / Math.max(0.2, r.alphaV || 1.6);
+  let scale = app.speed / Math.max(0.2, r.alphaV || 5);
   if (err > 0.55) scale *= 0.08;
   else if (err > 0.28) scale *= 0.35;
   app.t += Math.min(0.04, simDt) * scale;

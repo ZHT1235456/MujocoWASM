@@ -74,9 +74,9 @@ function connectExactGoal(nodes, startIdx, goal, alphaV, margin0, decay, alpha) 
  * 论文 Algorithm 1：在安全超矩形邻域上生长 RRT，得到带时间戳的盒子走廊。
  */
 export async function planSafeTube(start, goal, options = {}) {
-  const Nv = options.nv ?? 800;
+  const Nv = options.nv ?? 5000;
   const alpha = options.alpha ?? 0.99;
-  const alphaV = options.alphaV ?? 1.6;
+  const alphaV = options.alphaV ?? 5;
   const cSample = options.cSample ?? 0.8;
   const margin0 = options.margin0 ?? 0.18;
   const decay = options.decay ?? 0.12;
