@@ -87,3 +87,10 @@ export function setMetrics({ length, clearance, time, inside }) {
   if (time != null) document.getElementById('m-time').textContent = `${time.toFixed(2)} s`;
   if (inside != null) document.getElementById('m-inside').textContent = inside;
 }
+
+export function clearPlanMetrics() {
+  document.getElementById('m-length').textContent = '—';
+  document.getElementById('m-clearance').textContent = '—';
+  document.getElementById('m-time').textContent = '0.00 s';
+  document.getElementById('m-inside').textContent = '待重新规划';
+}

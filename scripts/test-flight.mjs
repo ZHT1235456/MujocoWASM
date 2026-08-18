@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import loadMujoco from '@mujoco/mujoco';
 import { planSafeTube } from '../src/plan/rrt-tube.js';
 import { bezierLpInTube } from '../src/plan/bezier-lp.js';
-import { evalTrajectory } from '../src/plan/bezier-tube.js';
+import { evalTrajectory, pointInTube } from '../src/plan/bezier-tube.js';
 import { computeGeometricControl, resetGeometric } from '../src/control/geometric.js';
 
 function assert(condition, message) {
@@ -21,6 +21,7 @@ const planned = await planSafeTube(start, goal, { nv: 1500, margin0: 0.18, alpha
 assert(planned.ok, planned.message || 'safe tube planning failed');
 const traj = await bezierLpInTube(planned.boxes, { np: 9 });
 assert(traj.ok, traj.message || 'trajectory LP failed');
+const timedBoxes = planned.boxes.map((box, index) => ({ ...box, t: traj.times[index] }));
 
 const mujoco = await loadMujoco();
 const xml = fs.readFileSync(new URL('../src/sim/quadrotor.xml', import.meta.url), 'utf8');
@@ -55,6 +56,10 @@ try {
     mujoco.mj_step(model, data);
 
     const pThree = [data.qpos[0], data.qpos[2], -data.qpos[1]];
+    assert(
+      pointInTube(pThree, timedBoxes, trajectoryTime),
+      `vehicle left active tube box at sim=${data.time}, trajectory=${trajectoryTime}, p=${JSON.stringify(pThree)}`
+    );
     minAltitude = Math.min(minAltitude, pThree[1]);
     const positionError = Math.hypot(
       pThree[0] - ref.p[0],

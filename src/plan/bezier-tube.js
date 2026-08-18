@@ -158,16 +158,19 @@ export function sampleTrajectory(traj, dt = 0.08) {
   return { samples, tangents, s: sTable, length: acc };
 }
 
-export function pointInTube(p, boxes, t) {
-  if (!boxes?.length) return false;
-  let box = boxes[0];
+export function tubeBoxIndex(boxes, t) {
+  if (!boxes?.length) return -1;
+  if (t >= boxes[boxes.length - 1].t) return boxes.length - 1;
   for (let i = 0; i < boxes.length - 1; i++) {
-    if (t >= boxes[i].t && t <= boxes[i + 1].t) {
-      box = boxes[i];
-      break;
-    }
-    if (t > boxes[boxes.length - 1].t) box = boxes[boxes.length - 1];
+    if (t < boxes[i + 1].t) return i;
   }
+  return boxes.length - 1;
+}
+
+export function pointInTube(p, boxes, t) {
+  const index = tubeBoxIndex(boxes, t);
+  if (index < 0) return false;
+  const box = boxes[index];
   const aabb = boxAabb(box);
   const pad = (box.lp ?? 0) + 0.05;
   return contains(

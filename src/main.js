@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { WORLD } from './world.js';
 import { initMujoco, createSim, stepSim } from './sim/mujoco.js';
 import { planSafeTube } from './plan/rrt-tube.js';
-import { evalTrajectory, sampleTrajectory, pointInTube } from './plan/bezier-tube.js';
+import { evalTrajectory, sampleTrajectory, pointInTube, tubeBoxIndex } from './plan/bezier-tube.js';
 import { bezierLpInTube } from './plan/bezier-lp.js';
 import { hoverThrusts } from './control/pid.js';
 import { computeGeometricControl, resetGeometric } from './control/geometric.js';
@@ -16,7 +16,7 @@ import {
   spinProps,
 } from './vis/scene.js';
 import { createCorridorView, drawCorridor, drawTree, setCorridorViolated } from './vis/corridor.js';
-import { bindPanel, setStatus, setMetrics, setBusy, waitFrame } from './ui/panel.js';
+import { bindPanel, setStatus, setMetrics, clearPlanMetrics, setBusy, waitFrame } from './ui/panel.js';
 
 const canvas = document.getElementById('viewport');
 const renderer = createRenderer(canvas);
@@ -28,6 +28,7 @@ const corridorGroup = createCorridorView(scene);
 
 const clock = new THREE.Clock();
 const followOffset = new THREE.Vector3(-1.7, 1.1, 1.9);
+const corridorConfirmFrames = 3;
 const app = {
   follow: true,
   paused: true,
@@ -40,6 +41,9 @@ const app = {
   t: 0,
   speed: 1.6,
   violations: 0,
+  corridorOutsideFrames: 0,
+  corridorInsideFrames: 0,
+  violatedBoxIndex: -1,
   thrusts: hoverThrusts(),
 };
 
@@ -58,7 +62,10 @@ function currentStartGoal(start, goal) {
 
 function redrawPath() {
   const r = app.planResult;
-  if (!r) return;
+  if (!r) {
+    drawCorridor(corridorGroup, [], [], {});
+    return;
+  }
   drawCorridor(corridorGroup, r.samples, r.radii, {
     corridor: app.show.corridor,
     centerline: app.show.centerline,
@@ -66,6 +73,27 @@ function redrawPath() {
     boxes: r.boxes,
   });
   drawTree(corridorGroup, r.nodes, app.show.tree);
+}
+
+function resetCorridorViolation() {
+  app.corridorOutsideFrames = 0;
+  app.corridorInsideFrames = 0;
+  app.violatedBoxIndex = -1;
+  if (app.planResult) app.planResult.violated = false;
+  setCorridorViolated(corridorGroup, false);
+}
+
+function invalidatePlan(message) {
+  app.planResult = null;
+  app.paused = true;
+  app.flying = false;
+  app.holding = false;
+  app.t = 0;
+  resetCorridorViolation();
+  redrawPath();
+  clearPlanMetrics();
+  document.getElementById('c-pause').textContent = '暂停';
+  setStatus(message);
 }
 
 app.setShow = (partial) => {
@@ -127,6 +155,7 @@ app.plan = async (start, goal, opts) => {
     };
     app.t = 0;
     app.violations = 0;
+    resetCorridorViolation();
     redrawPath();
     setMetrics({
       length: resampled.length,
@@ -149,12 +178,15 @@ app.moveStart = (start) => {
     Number(document.getElementById('c-gy').value),
     Number(document.getElementById('c-gz').value),
   ]);
+  invalidatePlan('起点已修改，请重新规划路径');
   app.reset(start);
+  setStatus('起点已修改，请重新规划路径');
 };
 
 app.moveGoal = (goal) => {
   if (!goal.every(Number.isFinite)) return;
   worldMeshes.goalMark.position.set(...goal);
+  invalidatePlan('终点已修改，请重新规划路径');
 };
 
 app.fly = (speed) => {
@@ -182,8 +214,8 @@ app.fly = (speed) => {
   app.t = 0;
   app.violations = 0;
   resetGeometric();
+  resetCorridorViolation();
   clock.getDelta();
-  if (app.planResult) app.planResult.violated = false;
   document.getElementById('c-pause').textContent = '暂停';
   setStatus('几何控制跟踪安全管');
   redrawPath();
@@ -213,7 +245,7 @@ app.reset = (start) => {
   app.violations = 0;
   app.thrusts = hoverThrusts();
   resetGeometric();
-  if (app.planResult) app.planResult.violated = false;
+  resetCorridorViolation();
   document.getElementById('c-pause').textContent = '暂停';
   currentStartGoal(start, [
     Number(document.getElementById('c-gx').value),
@@ -254,14 +286,28 @@ function checkCorridor() {
   if (!r?.boxes?.length) return true;
   const p = [body.position.x, body.position.y, body.position.z];
   const inside = pointInTube(p, r.boxes, app.t);
-  if (!inside && !r.violated) {
-    r.violated = true;
-    app.violations += 1;
-    setCorridorViolated(corridorGroup, true);
+  const activeBoxIndex = tubeBoxIndex(r.boxes, app.t);
+  if (inside) {
+    app.corridorOutsideFrames = 0;
+    app.corridorInsideFrames += 1;
+    if (r.violated && app.corridorInsideFrames >= corridorConfirmFrames) {
+      r.violated = false;
+      app.violatedBoxIndex = -1;
+      setCorridorViolated(corridorGroup, false);
+    }
+  } else {
+    app.corridorInsideFrames = 0;
+    app.corridorOutsideFrames += 1;
+    if (app.corridorOutsideFrames >= corridorConfirmFrames && (!r.violated || app.violatedBoxIndex !== activeBoxIndex)) {
+      if (!r.violated) app.violations += 1;
+      r.violated = true;
+      app.violatedBoxIndex = activeBoxIndex;
+      setCorridorViolated(corridorGroup, true, activeBoxIndex);
+    }
   }
   setMetrics({
     time: app.sim.data.time,
-    inside: inside ? '管内' : `越界 ×${app.violations}`,
+    inside: r.violated ? `越界 ×${app.violations}` : inside ? '管内' : '边界确认中',
   });
   return inside;
 }
@@ -269,6 +315,7 @@ function checkCorridor() {
 function animate() {
   try {
     const dt = Math.min(clock.getDelta(), 1 / 30);
+    let simAdvanced = false;
     if (app.sim && !app.paused) {
       let thrusts = hoverThrusts();
       const t0 = app.sim.data.time;
@@ -292,9 +339,10 @@ function animate() {
         stepSim(app.sim, thrusts, dt);
       }
       app.thrusts = thrusts;
-      checkCorridor();
+      simAdvanced = true;
     }
     if (app.sim) syncDrone(body, app.sim.model, app.sim.data);
+    if (simAdvanced) checkCorridor();
     spinProps(drone, app.thrusts, dt);
 
     if (app.follow) {

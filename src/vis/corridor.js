@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { toVec3 } from '../plan/collide.js';
+
+const toVec3 = (p) => new THREE.Vector3(p[0], p[1], p[2]);
 
 export function createCorridorView(scene) {
   const group = new THREE.Group();
@@ -119,7 +120,8 @@ export function drawCorridor(group, samples, radii, options = {}) {
 }
 
 function drawBoxes(group, boxes, color) {
-  for (const box of boxes) {
+  for (let boxIndex = 0; boxIndex < boxes.length; boxIndex++) {
+    const box = boxes[boxIndex];
     const aabb = box.aabb;
     if (!aabb) continue;
     const size = [aabb.max[0] - aabb.min[0], aabb.max[1] - aabb.min[1], aabb.max[2] - aabb.min[2]];
@@ -143,6 +145,7 @@ function drawBoxes(group, boxes, color) {
     );
     mesh.position.set(...center);
     mesh.name = 'tubeBox';
+    mesh.userData.boxIndex = boxIndex;
     group.add(mesh);
 
     const edges = new THREE.LineSegments(
@@ -151,15 +154,16 @@ function drawBoxes(group, boxes, color) {
     );
     edges.position.set(...center);
     edges.name = 'tubeBoxEdge';
+    edges.userData.boxIndex = boxIndex;
     group.add(edges);
   }
 }
 
-export function setCorridorViolated(group, violated) {
-  const color = violated ? 0xd64545 : 0x3ec7c2;
+export function setCorridorViolated(group, violated, boxIndex = -1) {
   group.traverse((obj) => {
     if (obj.material && obj.name !== 'centerline') {
-      if (obj.material.color) obj.material.color.setHex(color);
+      const isViolatedBox = violated && (boxIndex < 0 || obj.userData.boxIndex === boxIndex);
+      if (obj.material.color) obj.material.color.setHex(isViolatedBox ? 0xd64545 : 0x3ec7c2);
     }
   });
 }
