@@ -76,7 +76,7 @@ function connectExactGoal(nodes, startIdx, goal, alphaV, margin0, decay, alpha) 
 export async function planSafeTube(start, goal, options = {}) {
   const Nv = options.nv ?? 5000;
   const alpha = options.alpha ?? 0.99;
-  const alphaV = options.alphaV ?? 5;
+  const alphaV = options.alphaV ?? 4;
   const cSample = options.cSample ?? 0.8;
   const margin0 = options.margin0 ?? 0.18;
   const decay = options.decay ?? 0.12;
