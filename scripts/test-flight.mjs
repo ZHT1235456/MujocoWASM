@@ -19,8 +19,16 @@ const start = [-8, 1.4, -8];
 const goal = [8, 1.8, 8];
 const planned = await planSafeTube(start, goal, { nv: 1500, margin0: 0.18, alphaV: 1.6 });
 assert(planned.ok, planned.message || 'safe tube planning failed');
+assert(
+  Math.hypot(...planned.boxes.at(-1).p.map((value, axis) => value - goal[axis])) < 1e-7,
+  `safe tube does not end at the requested goal: ${JSON.stringify(planned.boxes.at(-1).p)}`
+);
 const traj = await bezierLpInTube(planned.boxes, { np: 9 });
 assert(traj.ok, traj.message || 'trajectory LP failed');
+assert(
+  Math.hypot(...traj.segments.at(-1).ctrl.at(-1).map((value, axis) => value - goal[axis])) < 1e-7,
+  `LP trajectory does not end at the requested goal: ${JSON.stringify(traj.segments.at(-1).ctrl.at(-1))}`
+);
 const timedBoxes = planned.boxes.map((box, index) => ({ ...box, t: traj.times[index] }));
 
 const mujoco = await loadMujoco();
@@ -82,9 +90,9 @@ try {
 
   const finalPosition = [data.qpos[0], data.qpos[2], -data.qpos[1]];
   const finalError = Math.hypot(
-    finalPosition[0] - traj.segments.at(-1).ctrl.at(-1)[0],
-    finalPosition[1] - traj.segments.at(-1).ctrl.at(-1)[1],
-    finalPosition[2] - traj.segments.at(-1).ctrl.at(-1)[2]
+    finalPosition[0] - goal[0],
+    finalPosition[1] - goal[1],
+    finalPosition[2] - goal[2]
   );
   const metrics = {
     tubeBoxes: planned.boxes.length,

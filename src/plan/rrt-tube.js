@@ -54,6 +54,22 @@ function tryExtend(nodes, parentIdx, xNew, alphaV, margin0, decay, alpha) {
   return idx;
 }
 
+function connectExactGoal(nodes, startIdx, goal, alphaV, margin0, decay, alpha) {
+  let current = startIdx;
+  for (let hop = 0; hop < 48; hop++) {
+    if (infDist(nodes[current].p, goal) < 1e-7) return current;
+    const rect = nodes[current].rect;
+    const next = contains(rect, goal) ? goal.slice() : closestPoint(goal, rect);
+    const nextIdx = tryExtend(nodes, current, next, alphaV, margin0, decay, alpha);
+    if (nextIdx < 0) return -1;
+    if (infDist(next, goal) < 1e-7) {
+      nodes[nextIdx].t = Math.max(nodes[nextIdx].t, nodes[current].t + 4);
+    }
+    current = nextIdx;
+  }
+  return infDist(nodes[current].p, goal) < 1e-7 ? current : -1;
+}
+
 /**
  * 论文 Algorithm 1：在安全超矩形邻域上生长 RRT，得到带时间戳的盒子走廊。
  */
@@ -151,6 +167,13 @@ export async function planSafeTube(start, goal, options = {}) {
   if (goalIndex < 0) {
     return { ok: false, nodes, boxes: [], message: '未连到目标，请增加迭代或放宽裕度' };
   }
+
+  goalIndex = connectExactGoal(nodes, goalIndex, goal, alphaV, margin0, decay, alpha);
+  if (goalIndex < 0) {
+    return { ok: false, nodes, boxes: [], message: '已接近目标，但无法生成到精确终点的安全盒链' };
+  }
+  const goalParent = nodes[goalIndex].parent;
+  if (goalParent >= 0) nodes[goalIndex].t = Math.max(nodes[goalIndex].t, nodes[goalParent].t + 4);
 
   const path = [];
   let cur = goalIndex;

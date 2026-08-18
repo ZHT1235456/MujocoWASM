@@ -7,77 +7,87 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <div id="stage">
-      <canvas id="viewport"></canvas>
-    </div>
-
-    <header id="titlecard">
-      <h1>安全走廊仿真</h1>
-      <p>MuJoCo WASM · 安全超矩形管 · 几何跟踪</p>
-      <dl id="metrics">
-        <div><dt>路径长度</dt><dd id="m-length">—</dd></div>
-        <div><dt>最小盒半宽</dt><dd id="m-clearance">—</dd></div>
-        <div><dt>仿真时间</dt><dd id="m-time">0.00 s</dd></div>
-        <div><dt>走廊状态</dt><dd id="m-inside">待机</dd></div>
-      </dl>
-    </header>
-
-    <aside id="panel">
-      <section>
-        <h2>任务</h2>
-        <button id="c-plan" class="primary">规划路径</button>
-        <div class="btn-row">
-          <button id="c-fly">起飞跟踪</button>
-          <button id="c-pause">暂停</button>
+    <div id="app">
+      <div id="stage">
+        <canvas id="viewport"></canvas>
+        <header id="titlecard">
+          <h1>安全走廊仿真</h1>
+          <p>MuJoCo WASM · 安全超矩形管 · 几何跟踪</p>
+          <dl id="metrics">
+            <div><dt>路径长度</dt><dd id="m-length">—</dd></div>
+            <div><dt>最小盒半宽</dt><dd id="m-clearance">—</dd></div>
+            <div><dt>仿真时间</dt><dd id="m-time">0.00 s</dd></div>
+            <div><dt>走廊状态</dt><dd id="m-inside">待机</dd></div>
+          </dl>
+        </header>
+        <footer id="hint">左键旋转 · 滚轮缩放 · 右键平移 · 规划后起飞 · V 导出视角</footer>
+        <div id="status">正在加载 MuJoCo WASM…</div>
+        <div id="busy" hidden>
+          <div class="busy-card">
+            <div class="busy-spinner"></div>
+            <p id="busy-text">正在规划路径…</p>
+            <span>请稍候，规划期间无法操作</span>
+          </div>
         </div>
-        <button id="c-reset">重置</button>
+      </div>
+
+      <aside id="panel">
+      <section class="panel-section task-section">
+        <h2>任务</h2>
+        <div class="action-grid">
+          <button id="c-plan" class="primary config-control" data-config-control>规划路径</button>
+          <button id="c-fly" class="accent">起飞跟踪</button>
+          <button id="c-pause">暂停</button>
+          <button id="c-reset">重置</button>
+        </div>
       </section>
 
-      <section>
-        <h2>规划</h2>
+      <section class="panel-section display-section">
+        <h2>显示</h2>
+        <div class="switch-grid">
+          <label class="switch"><input id="c-corridor" type="checkbox" checked /><span>安全超矩形管</span></label>
+          <label class="switch"><input id="c-centerline" type="checkbox" checked /><span>中心线</span></label>
+          <label class="switch"><input id="c-tree" type="checkbox" /><span>RRT 树</span></label>
+          <label class="switch"><input id="c-wire" type="checkbox" /><span>障碍线框</span></label>
+          <label class="switch"><input id="c-axes" type="checkbox" /><span>机体坐标</span></label>
+          <label class="switch"><input id="c-follow" type="checkbox" /><span>尾部跟拍</span></label>
+        </div>
+      </section>
+
+      <section class="panel-section config-section">
+        <div class="section-heading">
+          <h2>规划</h2>
+          <span id="config-lock-state">起飞后锁定</span>
+        </div>
         <label class="slider">
           <span>采样次数 Nv<em id="v-iters">1500</em></span>
-          <input id="c-iters" type="range" min="400" max="4000" step="100" value="1500" />
+          <input id="c-iters" class="config-control" data-config-control type="range" min="400" max="4000" step="100" value="1500" />
         </label>
         <label class="slider">
           <span>跟踪裕度 Lp<em id="v-radius">0.18 m</em></span>
-          <input id="c-radius" type="range" min="8" max="40" value="18" />
+          <input id="c-radius" class="config-control" data-config-control type="range" min="8" max="40" value="18" />
         </label>
         <label class="slider">
           <span>巡航速度<em id="v-speed">1.6 m/s</em></span>
-          <input id="c-speed" type="range" min="6" max="40" value="16" />
+          <input id="c-speed" class="config-control" data-config-control type="range" min="6" max="40" value="16" />
         </label>
       </section>
 
-      <section>
+      <section class="panel-section config-section coordinate-section">
         <h2>起终点</h2>
-        <label class="field">起点 X <input id="c-sx" type="number" step="0.5" value="-8" /></label>
-        <label class="field">起点 Y <input id="c-sy" type="number" step="0.2" value="1.4" /></label>
-        <label class="field">起点 Z <input id="c-sz" type="number" step="0.5" value="-8" /></label>
-        <label class="field">终点 X <input id="c-gx" type="number" step="0.5" value="8" /></label>
-        <label class="field">终点 Y <input id="c-gy" type="number" step="0.2" value="1.8" /></label>
-        <label class="field">终点 Z <input id="c-gz" type="number" step="0.5" value="8" /></label>
+        <div class="coordinate-grid" aria-label="起终点坐标">
+          <span></span><b>X</b><b>Y</b><b>Z</b>
+          <strong>起点</strong>
+          <label><span class="sr-only">起点 X</span><input id="c-sx" class="config-control" data-config-control aria-label="起点 X" type="number" step="0.5" value="-8" /></label>
+          <label><span class="sr-only">起点 Y</span><input id="c-sy" class="config-control" data-config-control aria-label="起点 Y" type="number" step="0.2" value="1.4" /></label>
+          <label><span class="sr-only">起点 Z</span><input id="c-sz" class="config-control" data-config-control aria-label="起点 Z" type="number" step="0.5" value="-8" /></label>
+          <strong>终点</strong>
+          <label><span class="sr-only">终点 X</span><input id="c-gx" class="config-control" data-config-control aria-label="终点 X" type="number" step="0.5" value="8" /></label>
+          <label><span class="sr-only">终点 Y</span><input id="c-gy" class="config-control" data-config-control aria-label="终点 Y" type="number" step="0.2" value="1.8" /></label>
+          <label><span class="sr-only">终点 Z</span><input id="c-gz" class="config-control" data-config-control aria-label="终点 Z" type="number" step="0.5" value="8" /></label>
+        </div>
       </section>
-
-      <section>
-        <h2>显示</h2>
-        <label class="switch"><input id="c-corridor" type="checkbox" checked /><span>安全超矩形管</span></label>
-        <label class="switch"><input id="c-centerline" type="checkbox" checked /><span>中心线</span></label>
-        <label class="switch"><input id="c-tree" type="checkbox" /><span>RRT 树</span></label>
-        <label class="switch"><input id="c-wire" type="checkbox" /><span>障碍线框</span></label>
-        <label class="switch"><input id="c-axes" type="checkbox" /><span>机体坐标</span></label>
-        <label class="switch"><input id="c-follow" type="checkbox" checked /><span>相机跟随</span></label>
-      </section>
-    </aside>
-
-    <footer id="hint">左键旋转 · 滚轮缩放 · 右键平移 · 规划后起飞</footer>
-    <div id="status">正在加载 MuJoCo WASM…</div>
-    <div id="busy" hidden>
-      <div class="busy-card">
-        <div class="busy-spinner"></div>
-        <p id="busy-text">正在规划路径…</p>
-        <span>请稍候，规划期间无法操作</span>
-      </div>
+      </aside>
     </div>
 
     <script type="module" src="/src/main.js"></script>

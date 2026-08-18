@@ -63,16 +63,48 @@ export function createScene(renderer) {
 
 export function createCamera(canvas) {
   const camera = new THREE.PerspectiveCamera(42, 1, 0.05, 80);
-  camera.position.set(WORLD.start[0] - 1.7, WORLD.start[1] + 1.1, WORLD.start[2] + 1.9);
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.minDistance = 0.55;
   controls.maxDistance = 28;
   controls.maxPolarAngle = Math.PI * 0.48;
-  controls.target.set(...WORLD.start);
-  controls.update();
+  setStartCameraView(camera, controls);
   return { camera, controls };
+}
+
+const START_CAMERA_VIEW = {
+  target: [-0.3366, 1.6147, -2.3737],
+  distance: 24.3447,
+  // polar=0 collapses heading; keep a tiny tilt so azimuth survives
+  polar: 1e-3,
+  azimuth: -1.5617,
+};
+
+export function setStartCameraView(camera, controls) {
+  controls.target.set(...START_CAMERA_VIEW.target);
+  const offset = new THREE.Vector3().setFromSphericalCoords(
+    START_CAMERA_VIEW.distance,
+    START_CAMERA_VIEW.polar,
+    START_CAMERA_VIEW.azimuth,
+  );
+  camera.position.copy(controls.target).add(offset);
+  camera.up.set(0, 1, 0);
+  controls.update();
+}
+
+function roundVec(vec, digits = 4) {
+  return vec.toArray().map((n) => Number(n.toFixed(digits)));
+}
+
+export function dumpCameraView(camera, controls) {
+  return {
+    position: roundVec(camera.position),
+    target: roundVec(controls.target),
+    distance: Number(controls.getDistance().toFixed(4)),
+    polar: Number(controls.getPolarAngle().toFixed(6)),
+    azimuth: Number(controls.getAzimuthalAngle().toFixed(4)),
+  };
 }
 
 export function createWorldMeshes(scene) {

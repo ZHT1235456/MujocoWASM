@@ -14,12 +14,15 @@ export function bindPanel(app) {
 
   $('c-iters').addEventListener('input', () => {
     $('v-iters').textContent = $('c-iters').value;
+    app.planningConfigChanged?.();
   });
   $('c-radius').addEventListener('input', () => {
     $('v-radius').textContent = `${(Number($('c-radius').value) / 100).toFixed(2)} m`;
+    app.planningConfigChanged?.();
   });
   $('c-speed').addEventListener('input', () => {
     $('v-speed').textContent = `${(Number($('c-speed').value) / 10).toFixed(1)} m/s`;
+    app.planningConfigChanged?.();
   });
 
   $('c-plan').addEventListener('click', () => {
@@ -54,7 +57,7 @@ export function bindPanel(app) {
   $('c-wire').addEventListener('change', (e) => app.setShow({ wire: e.target.checked }));
   $('c-axes').addEventListener('change', (e) => app.setShow({ axes: e.target.checked }));
   $('c-follow').addEventListener('change', (e) => {
-    app.follow = e.target.checked;
+    app.setFollow?.(e.target.checked);
   });
 
   return { readStart, readGoal };
@@ -73,7 +76,18 @@ export function setBusy(busy, message = '正在规划路径…') {
   if (overlay) overlay.hidden = !busy;
   panel?.classList.toggle('is-busy', busy);
   for (const el of panel?.querySelectorAll('button, input') ?? []) {
-    el.disabled = busy;
+    const configLocked = panel.classList.contains('config-locked') && el.hasAttribute('data-config-control');
+    el.disabled = busy || configLocked;
+  }
+}
+
+export function setConfigLocked(locked) {
+  const panel = document.getElementById('panel');
+  const state = document.getElementById('config-lock-state');
+  panel?.classList.toggle('config-locked', locked);
+  if (state) state.textContent = locked ? '已锁定' : '起飞后锁定';
+  for (const el of panel?.querySelectorAll('[data-config-control]') ?? []) {
+    el.disabled = locked || panel.classList.contains('is-busy');
   }
 }
 

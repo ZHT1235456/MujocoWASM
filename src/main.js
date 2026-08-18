@@ -10,13 +10,15 @@ import {
   createRenderer,
   createScene,
   createCamera,
+  setStartCameraView,
+  dumpCameraView,
   createWorldMeshes,
   createDroneVisual,
   syncDrone,
   spinProps,
 } from './vis/scene.js';
 import { createCorridorView, drawCorridor, drawTree, setCorridorViolated } from './vis/corridor.js';
-import { bindPanel, setStatus, setMetrics, clearPlanMetrics, setBusy, waitFrame } from './ui/panel.js';
+import { bindPanel, setStatus, setMetrics, clearPlanMetrics, setBusy, setConfigLocked, waitFrame } from './ui/panel.js';
 
 const canvas = document.getElementById('viewport');
 const renderer = createRenderer(canvas);
@@ -27,10 +29,20 @@ const { drone, body, axes } = createDroneVisual(scene);
 const corridorGroup = createCorridorView(scene);
 
 const clock = new THREE.Clock();
-const followOffset = new THREE.Vector3(-1.7, 1.1, 1.9);
+const followTailOffset = new THREE.Vector3(0, 0.72, -1.9);
+const followLookOffset = new THREE.Vector3(0, 0.08, 0.72);
+const followPosition = new THREE.Vector3();
+const followTarget = new THREE.Vector3();
+const followDirection = new THREE.Vector3();
+const followRay = new THREE.Ray();
+const followObstacleBox = new THREE.Box3();
+const followObstacleCenter = new THREE.Vector3();
+const followObstacleSize = new THREE.Vector3();
+const followHit = new THREE.Vector3();
+let cameraViewBeforeFollow = null;
 const corridorConfirmFrames = 3;
 const app = {
-  follow: true,
+  follow: false,
   paused: true,
   flying: false,
   holding: false,
@@ -47,13 +59,38 @@ const app = {
   thrusts: hoverThrusts(),
 };
 
+const stage = document.getElementById('stage');
+
 function resize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  const width = Math.max(1, stage.clientWidth);
+  const height = Math.max(1, stage.clientHeight);
+  camera.aspect = width / height;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight, false);
+  renderer.setSize(width, height, false);
 }
 window.addEventListener('resize', resize);
+new ResizeObserver(resize).observe(stage);
 resize();
+
+function dumpCamera() {
+  controls.update();
+  const pose = dumpCameraView(camera, controls);
+  const text = JSON.stringify(pose, null, 2);
+  console.log('[camera view]\n' + text);
+  navigator.clipboard?.writeText(text).catch(() => {});
+  setStatus('当前视角已复制到剪贴板，请粘贴发给我');
+  return pose;
+}
+
+window.dumpCamera = dumpCamera;
+window.addEventListener('keydown', (event) => {
+  if (event.key !== 'v' && event.key !== 'V') return;
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  const tag = event.target?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || event.target?.isContentEditable) return;
+  event.preventDefault();
+  dumpCamera();
+});
 
 function currentStartGoal(start, goal) {
   worldMeshes.startMark.position.set(...start);
@@ -92,8 +129,42 @@ function invalidatePlan(message) {
   resetCorridorViolation();
   redrawPath();
   clearPlanMetrics();
+  setConfigLocked(false);
   document.getElementById('c-pause').textContent = '暂停';
   setStatus(message);
+}
+
+function updateFollowCamera(dt, immediate = false) {
+  followPosition.copy(followTailOffset).applyQuaternion(body.quaternion).add(body.position);
+  followTarget.copy(followLookOffset).applyQuaternion(body.quaternion).add(body.position);
+
+  followDirection.subVectors(followPosition, body.position);
+  const desiredDistance = followDirection.length();
+  if (desiredDistance > 1e-6) {
+    followDirection.multiplyScalar(1 / desiredDistance);
+    followRay.set(body.position, followDirection);
+    let allowedDistance = desiredDistance;
+    for (const obstacle of WORLD.obstacles) {
+      followObstacleCenter.set(...obstacle.pos);
+      followObstacleSize.set(...obstacle.size);
+      followObstacleBox.setFromCenterAndSize(followObstacleCenter, followObstacleSize).expandByScalar(0.12);
+      const hit = followRay.intersectBox(followObstacleBox, followHit);
+      if (!hit) continue;
+      const distance = hit.distanceTo(body.position);
+      if (distance < allowedDistance) allowedDistance = Math.max(0.5, distance - 0.14);
+    }
+    if (allowedDistance < desiredDistance) {
+      followPosition.copy(body.position).addScaledVector(followDirection, allowedDistance);
+    }
+  }
+
+  if (immediate) {
+    camera.position.copy(followPosition);
+    controls.target.copy(followTarget);
+  } else {
+    camera.position.lerp(followPosition, 1 - Math.pow(0.025, dt));
+    controls.target.lerp(followTarget, 1 - Math.pow(0.05, dt));
+  }
 }
 
 app.setShow = (partial) => {
@@ -103,6 +174,31 @@ app.setShow = (partial) => {
     if (obj.userData.wire) obj.visible = !!app.show.wire;
   });
   redrawPath();
+};
+
+app.planningConfigChanged = () => {
+  if (app.planResult?.traj) invalidatePlan('规划参数已修改，请重新规划路径');
+};
+
+app.setFollow = (enabled) => {
+  if (enabled === app.follow) return;
+  if (enabled) {
+    cameraViewBeforeFollow = {
+      position: camera.position.clone(),
+      target: controls.target.clone(),
+    };
+    app.follow = true;
+    updateFollowCamera(0, true);
+    controls.update();
+    return;
+  }
+  app.follow = false;
+  if (cameraViewBeforeFollow) {
+    camera.position.copy(cameraViewBeforeFollow.position);
+    controls.target.copy(cameraViewBeforeFollow.target);
+    controls.update();
+    cameraViewBeforeFollow = null;
+  }
 };
 
 app.plan = async (start, goal, opts) => {
@@ -156,6 +252,7 @@ app.plan = async (start, goal, opts) => {
     app.t = 0;
     app.violations = 0;
     resetCorridorViolation();
+    setConfigLocked(true);
     redrawPath();
     setMetrics({
       length: resampled.length,
@@ -180,6 +277,14 @@ app.moveStart = (start) => {
   ]);
   invalidatePlan('起点已修改，请重新规划路径');
   app.reset(start);
+  if (!app.follow) {
+    const goal = [
+      Number(document.getElementById('c-gx').value),
+      Number(document.getElementById('c-gy').value),
+      Number(document.getElementById('c-gz').value),
+    ];
+    setStartCameraView(camera, controls);
+  }
   setStatus('起点已修改，请重新规划路径');
 };
 
@@ -187,6 +292,14 @@ app.moveGoal = (goal) => {
   if (!goal.every(Number.isFinite)) return;
   worldMeshes.goalMark.position.set(...goal);
   invalidatePlan('终点已修改，请重新规划路径');
+  if (!app.follow) {
+    const start = [
+      Number(document.getElementById('c-sx').value),
+      Number(document.getElementById('c-sy').value),
+      Number(document.getElementById('c-sz').value),
+    ];
+    setStartCameraView(camera, controls);
+  }
 };
 
 app.fly = (speed) => {
@@ -208,6 +321,7 @@ app.fly = (speed) => {
   }
   app.sim = createSim(start);
   app.speed = speed;
+  setConfigLocked(true);
   app.paused = false;
   app.flying = true;
   app.holding = false;
@@ -244,6 +358,7 @@ app.reset = (start) => {
   app.t = 0;
   app.violations = 0;
   app.thrusts = hoverThrusts();
+  setConfigLocked(false);
   resetGeometric();
   resetCorridorViolation();
   document.getElementById('c-pause').textContent = '暂停';
@@ -346,11 +461,7 @@ function animate() {
     spinProps(drone, app.thrusts, dt);
 
     if (app.follow) {
-      const desired = body.position.clone().add(followOffset);
-      if (Number.isFinite(desired.x)) {
-        camera.position.lerp(desired, 1 - Math.pow(0.04, dt));
-        controls.target.lerp(body.position, 1 - Math.pow(0.08, dt));
-      }
+      updateFollowCamera(dt);
     }
     controls.update();
     renderer.render(scene, camera);
@@ -369,9 +480,7 @@ async function main() {
     const start = WORLD.start.slice();
     app.sim = createSim(start);
     syncDrone(body, app.sim.model, app.sim.data);
-    camera.position.copy(body.position).add(followOffset);
-    controls.target.copy(body.position);
-    controls.update();
+    setStartCameraView(camera, controls);
     bindPanel(app);
     window.__app = app;
     window.__body = body;

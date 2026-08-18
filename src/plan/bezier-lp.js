@@ -122,6 +122,7 @@ function buildProblem(glpk, boxes, durations, options) {
   // Demo extension: arrive at rest because it switches to a terminal hover.
   const lastSegment = boxes.length - 2;
   for (let axis = 0; axis < 3; axis++) {
+    fixed('terminal_position', [{ name: cpName(lastSegment, n, axis), coef: 1 }], boxes.at(-1).p[axis]);
     for (let order = 1; order <= 3; order++) fixed('terminal_derivative', differenceTerms(lastSegment, n, order, axis, true));
   }
 
