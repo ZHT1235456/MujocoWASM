@@ -90,7 +90,7 @@ $$
 \mathfrak{B}(0)=\mathfrak{c}^{0}, \mathfrak{B}(T)=\mathfrak{c}^{N}, \mathfrak{B}(t) \in \operatorname{conv}\left(\mathfrak{c}^{0}, \ldots, \mathfrak{c}^{N}\right), t \in[0, T] .
 $$
 
-The derivatives of Bézier curves are also Bézier curves. For example, $\dot{\mathfrak{B}}(t)=\sum_{i=0}^{N-1}(N / T)\left(\mathfrak{c}^{i+1}-\mathfrak{c}^{i}\right) \mathfrak{b}_{i, N-1}(t / T)$, $\ddot{\mathfrak{B}}(t)=\sum_{i=0}^{N-2}\left(N(N-1) / T^{2}\right)\left(\mathfrak{c}^{i+2}-2 \mathfrak{c}^{i+1}+\mathfrak{c}^{i}\right) \mathfrak{b}_{i, N-2}$ $(t / T), \dddot{\mathfrak{B}}(t)=\sum_{i=0}^{N-3}\left(\prod_{j=0}^{2}(N-j) / T^{3}\right)\left(\mathfrak{c}^{i+3}-3 \mathfrak{c}^{i+2}+\right.$ $\left.3 \mathfrak{c}^{i+1}-\mathfrak{c}^{i}\right) \mathfrak{b}_{i, N-3}(t / T)$, and $\dddot{\mathfrak{B}}(t)=\sum_{i=0}^{N-4}\left(\prod_{j=0}^{3}(N-j) /\right.$ $\left.T^{4}\right)\left(\mathfrak{c}^{i+4}-4 \mathfrak{c}^{i+3}+6 \mathfrak{c}^{i+2}-4 \mathfrak{c}^{i+1}+\mathfrak{c}^{i}\right) \mathfrak{b}_{i, N-4}(t / T), t \in[0, T]$. Therefore, the ranges of $\mathfrak{B}$ and its derivatives can be controlled by tuning the control points $\mathfrak{c}^{0}, \ldots, \mathfrak{c}^{N}$.
+The derivatives of Bézier curves are also Bézier curves. For example, $\dot{\mathfrak{B}}(t)=\sum_{i=0}^{N-1}(N / T)\left(\mathfrak{c}^{i+1}-\mathfrak{c}^{i}\right) \mathfrak{b}_{i, N-1}(t / T)$, $\ddot{\mathfrak{B}}(t)=\sum_{i=0}^{N-2}\left(N(N-1) / T^{2}\right)\left(\mathfrak{c}^{i+2}-2 \mathfrak{c}^{i+1}+\mathfrak{c}^{i}\right) \mathfrak{b}_{i, N-2}$ $(t / T), \dddot{\mathfrak{B}}(t)=\sum_{i=0}^{N-3}\left(\prod_{j=0}^{2}(N-j) / T^{3}\right)\left(\mathfrak{c}^{i+3}-3 \mathfrak{c}^{i+2}+\right.$ $\left.3 \mathfrak{c}^{i+1}-\mathfrak{c}^{i}\right) \mathfrak{b}_{i, N-3}(t / T)$, and $\ddddot{\mathfrak{B}}(t)=\sum_{i=0}^{N-4}\left(\prod_{j=0}^{3}(N-j) /\right.$ $\left.T^{4}\right)\left(\mathfrak{c}^{i+4}-4 \mathfrak{c}^{i+3}+6 \mathfrak{c}^{i+2}-4 \mathfrak{c}^{i+1}+\mathfrak{c}^{i}\right) \mathfrak{b}_{i, N-4}(t / T), t \in[0, T]$. Therefore, the ranges of $\mathfrak{B}$ and its derivatives can be controlled by tuning the control points $\mathfrak{c}^{0}, \ldots, \mathfrak{c}^{N}$.
 
 ## III. Quadrotor Model
 
@@ -197,13 +197,13 @@ The derivative of $F_{d}$, given by (12), after substituting (17) and (18) in is
 
 $$
 \begin{equation*}
-\dot{F}_{d}(t)=-k_{p} e_{v}(t)-\frac{k_{v}}{m}\left(-k_{p} e_{p}(t)-k_{v} e_{v}(t)+\Delta_{f}(t)\right)+\dddot{p}_{d}(t) . \tag{24}
+\dot{F}_{d}(t)=-k_{p} e_{v}(t)-\frac{k_{v}}{m}\left(-k_{p} e_{p}(t)-k_{v} e_{v}(t)+\Delta_{f}(t)\right)+m\dddot{p}_{d}(t) . \tag{24}
 \end{equation*}
 $$
 
 We fix the time interval $I \subseteq \mathbb{R}_{+}$, assume that 0 is the left endpoint of $I$, and consider the closed-loop quadrotor system (1)-(4), with (6)-(10) and (11)-(16), over $I$ throughout the discussion below. Unless otherwise specified, we assume that the control gains are fixed. In addition, it is assumed that $p_{d}$ is four-times continuously differentiable over $I$, where $p_{d}$ and its first four derivatives are bounded over $I$.
 
-Note that in the definition of $\hat{\omega}_{d}$ in (15), we differentiate $R_{d}$ with respect to time, which necessarily requires differentiating $F_{d}$ [see (14) and (16)], where the evolution equations of $p$ and $v$, given by (1) and (2), respectively, are used. Note also that $\omega_{d}$ depends on $\dddot{p}_{d}$ and that $\dot{\omega}_{d}$, which is used in the torque law (13), depends on $\dddot{p}_{d}$, hence the four-times continuous differentiability assumption imposed on $p_{d}$.
+Note that in the definition of $\hat{\omega}_{d}$ in (15), we differentiate $R_{d}$ with respect to time, which necessarily requires differentiating $F_{d}$ [see (14) and (16)], where the evolution equations of $p$ and $v$, given by (1) and (2), respectively, are used. Note also that $\omega_{d}$ depends on $\dddot{p}_{d}$ and that $\dot{\omega}_{d}$, which is used in the torque law (13), depends on $\ddddot{p}_{d}$, hence the four-times continuous differentiability assumption imposed on $p_{d}$.
 
 In light of (16), it is necessary to guarantee that
 
@@ -252,10 +252,18 @@ W_{1} & :=\left(\begin{array}{cc}
 \end{array}\right) \tag{30}
 \end{align*}
 $$
-
+$$
+M_{2,1}:=\frac{1}{2}\left(\begin{array}{cc}
+k_R \mathrm{I}_3 & c_2 \mathrm{I}_3  \tag{31}\\
+c_2 \mathrm{I}_3 & J
+\end{array}\right), M_{2,2}:=\frac{1}{2}\left(\begin{array}{cc}
+\frac{2 k_R}{2-\bar{\Psi}} \mathrm{I}_3 & c_2 \mathrm{I}_3 \\
+c_2 \mathrm{I}_3 & J
+\end{array}\right)
+$$
 $$
 W_{2}:=\left(\begin{array}{cc}
-c_{2} k_{R} J^{-1} & \frac{c_{2} k_{\omega}}{2} J^{-1}  \tag{31}\\
+c_{2} k_{R} J^{-1} & \frac{c_{2} k_{\omega}}{2} J^{-1}  \tag{32}\\
 \frac{c_{2} k_{\omega}}{2} J^{-1} & \left(k_{\omega}-c_{2}\right) \mathrm{I}_{3}
 \end{array}\right)
 $$
@@ -269,7 +277,7 @@ $$
 \end{align*}
 $$
 
-Define $z_{1}(\cdot):=\left[e_{p}^{\top}(\cdot) e_{v}^{\top}(t)\right]^{\top}, z_{2}(\cdot):=\left[e_{R}^{\top}(t) e_{\omega}^{\top}(\cdot)\right]^{\top}$, and
+Define $z_{1}(\cdot):=\left[e_{p}^{\top}(\cdot) e_{v}^{\top}(\cdot)\right]^{\top}, z_{2}(\cdot):=\left[e_{R}^{\top}(\cdot) e_{\omega}^{\top}(\cdot)\right]^{\top}$, and
 
 $$
 \begin{equation*}
@@ -293,7 +301,7 @@ V_{2}(t) & \leq V_{2}(0) \mathrm{e}^{-2 \beta t}  \tag{39}\\
 \sqrt{V(t)} & \leq \mathcal{L}\left(V_{1}(0), V_{2}(0), t\right)  \tag{40}\\
 \left\|e_{p}(t)\right\| & \leq \mathcal{L}_{p}\left(V_{1}(0), V_{2}(0), t\right)  \tag{41}\\
 \left\|e_{v}(t)\right\| & \leq \mathcal{L}_{v}\left(V_{1}(0), V_{2}(0), t\right)  \tag{42}\\
-o(t)+k_{v} e_{v}(t) \| & \leq \mathcal{L}_{f}\left(V_{1}(0), V_{2}(0), t\right) \tag{43}
+\|k_pe_p(t)+k_ve_v(t)\| & \leq \mathcal{L}_{f}\left(V_{1}(0), V_{2}(0), t\right) \tag{43}
 \end{align*}
 $$
 
@@ -304,17 +312,26 @@ $$
 \mathcal{L}_{1}(x, y, t):=\mathrm{e}^{\frac{\alpha_{1} \sqrt{y}}{2 \beta}} \sqrt{x+y} \mathrm{e}^{-\frac{\alpha_{0}}{2} t} \tag{44}
 \end{equation*}
 $$
+$$
+\begin{align*}
+\mathcal{L}_2(y, t) & :=\mathrm{e}^{\frac{\alpha_1 \sqrt{y}}{2 \beta}} \frac{\alpha_2 \sqrt{y}}{2} \mathrm{e}^{-\frac{\alpha_0}{2} t} \int_0^t \mathrm{e}^{\left(\frac{\alpha_0}{2}-\beta\right) s} \mathrm{~d} s  \tag{45}\\
+\mathcal{L}(x, y, t) & :=\mathcal{L}_1(x, y, t)+\mathcal{L}_2(y, t)  \tag{46}\\
+\mathcal{L}_p(x, y, t) & :=\left\|\left[\mathrm{I}_3, 0_{3 \times 3}\right] M_1^{-\frac{1}{2}}\right\| \mathcal{L}(x, y, t)  \tag{47}\\
+\mathcal{L}_v(x, y, t) & :=\left\|\left[0_{3 \times 3}, \mathrm{I}_3\right] M_1^{-\frac{1}{2}}\right\| \mathcal{L}(x, y, t)  \tag{48}\\
+\mathcal{L}_f(x, y, t) & :=\left\|\left[k_p \mathrm{I}_3, k_v \mathrm{I}_3\right] M_1^{-\frac{1}{2}}\right\| \mathcal{L}(x, y, t) \tag{49}
+\end{align*}
+$$
+
 
 $$
-\begin{equation*}
-\alpha_{0}:=\min \left(\underline{\lambda}\left(M_{1}^{-\frac{1}{2}} W_{1} M_{1}^{-\frac{1}{2}}\right), 2 \beta\right) \tag{50}
-\end{equation*}
-$$
-
-$$
-\begin{equation*}
-\alpha_{1}:=\left\|\left[\frac{c_{1}}{m} \mathrm{I}_{3}, \mathrm{I}_{3}\right] M_{1}^{-\frac{1}{2}}\right\|\left\|\left[k_{p} \mathrm{I}_{3}, k_{v} \mathrm{I}_{3}\right] M_{1}^{-\frac{1}{2}}\right\| \tag{51}
-\end{equation*}
+\begin{align*}
+\beta:= & \frac{\underline{\lambda}\left(M_{2,2}^{-\frac{1}{2}} W_2 M_{2,2}^{-\frac{1}{2}}\right)}{2}  \tag{50}\\
+\alpha_0:= & \min \left(\underline{\lambda}\left(M_1^{-\frac{1}{2}} W_1 M_1^{-\frac{1}{2}}\right), 2 \beta\right)  \tag{51}\\
+\alpha_1:= & \left\|\left[\frac{c_1}{m} \mathrm{I}_3, \mathrm{I}_3\right] M_1^{-\frac{1}{2}}\right\|\left\|\left[k_p \mathrm{I}_3, k_v \mathrm{I}_3\right] M_1^{-\frac{1}{2}}\right\|  \tag{52}\\
+& \times\left\|\left[\mathrm{I}_3, 0_{3 \times 3}\right] M_{2,1}^{-\frac{1}{2}}\right\| \sqrt{\frac{2}{2-\bar{\Psi}}} \\
+\alpha_2:= & m\left\|a_{\max }\right\|\left\|\left[\frac{c_1}{m} \mathrm{I}_3, \mathrm{I}_3\right] M_1^{-\frac{1}{2}}\right\| \\
+& \times\left\|\left[\mathrm{I}_3, 0_{3 \times 3}\right] M_{2,1}^{-\frac{1}{2}}\right\| \sqrt{\frac{2}{2-\bar{\Psi}}} . \tag{53}
+\end{align*}
 $$
 
 Remark 1: In Theorem 4, we establish bounds on the error terms $e_{p}$ and $e_{v}$, as these quantities are crucial for guaranteeing both spatial reach-avoid requirements and velocity constraints. Moreover, the theorem provides a bound on the composite term $k_{p} e_{p}+k_{v} e_{v}$, which plays an important role in verifying thrust constraints [see the definition of $F_{d}$ in (12)] and in ensuring the well-definedness of the closed-loop dynamics by satisfying the condition stated in (25).
@@ -407,7 +424,7 @@ $$
 Remark 2: The expression for $t_{m}$, introduced in Corollary 1, can be obtained by finding the critical points of $\mathcal{L}(x, y, \cdot)$ for fixed $x$ and $y$ through straightforward differentiation. In particular, $t_{m}(x, y):=$
 
 $$
-\begin{cases}\max \left(\frac{1}{\frac{\alpha_{0}}{2}-\beta} \ln \left(\frac{\frac{\alpha_{2} \beta \sqrt{y}}{2 \beta-\alpha_{0}}}{\frac{\alpha_{0}}{2} \sqrt{x+y}+\frac{\alpha_{0} \alpha_{2} \sqrt{y}}{2\left(2 \beta-\alpha_{0}\right)}}\right), 0\right), & \frac{\alpha_{0}}{2} \neq \beta, y>0  \tag{60}\\ \max \left(\frac{2\left(\alpha_{2} \sqrt{y}-\alpha_{0} \sqrt{x+y}\right)}{\alpha_{0} \alpha_{2} \sqrt{y}}, 0\right), & \frac{\alpha_{0}}{2}=\beta, y>0 \\ 0, & \text { otherwise. }\end{cases}
+\begin{cases}\max \left(\frac{1}{\beta-\frac{\alpha_{0}}{2}} \ln \left(\frac{\frac{\alpha_{2} \beta \sqrt{y}}{2 \beta-\alpha_{0}}}{\frac{\alpha_{0}}{2} \sqrt{x+y}+\frac{\alpha_{0} \alpha_{2} \sqrt{y}}{2\left(2 \beta-\alpha_{0}\right)}}\right), 0\right), & \frac{\alpha_{0}}{2} \neq \beta, y>0  \tag{60}\\ \max \left(\frac{2\left(\alpha_{2} \sqrt{y}-\alpha_{0} \sqrt{x+y}\right)}{\alpha_{0} \alpha_{2} \sqrt{y}}, 0\right), & \frac{\alpha_{0}}{2}=\beta, y>0 \\ 0, & \text { otherwise. }\end{cases}
 $$
 
 ## D. Bounds and Conditions Independent of the Initial Value
@@ -533,7 +550,7 @@ Note that if, we set $T=\mathrm{t}_{N_{s}}$, and we synthesize a trajectory $p_{
 
 $$
 \begin{align*}
-p_{d}(t) & \in \mathrm{p}_{i}+\llbracket-\mathrm{r}_{i}, \mathrm{r}_{i} \rrbracket, t \in\left[\mathrm{t}_{i}, \mathrm{t}_{i+1}\right], i \in\left[0 ; N_{s-1}\right] \\
+p_{d}(t) & \in \mathrm{p}_{i}+\llbracket-\mathrm{r}_{i}, \mathrm{r}_{i} \rrbracket, t \in\left[\mathrm{t}_{i}, \mathrm{t}_{i+1}\right], i \in\left[0 ; N_{s}-1\right] \\
 p_{d}(T) & \in \mathrm{p}_{N_{s}}+\llbracket-\mathrm{r}_{N_{s}}, \mathrm{r}_{N_{s}} \rrbracket \tag{74}
 \end{align*}
 $$
@@ -550,13 +567,13 @@ $$
 (\operatorname{CP}(x, \llbracket a, b \rrbracket))_{i}:= \begin{cases}x_{i}, & x_{i} \in\left[a_{i}, b_{i}\right] \\ c_{i}+r_{i} \operatorname{sgn}\left(x_{i}-c_{i}\right), & \text { otherwise }\end{cases}
 $$
 
-where $i \in[1 ; n]$, and $\operatorname{sgn}(\cdot)$ is the signum function. Now, assume $x \notin \llbracket a, b \rrbracket$, and let $\tilde{i} \in[1 ; p]$ such that $\left|x_{\tilde{i}}-y_{\tilde{i}}^{*}\right|=\left\|x-y^{*}\right\|_{\infty}>$ 0 , and define $\mathcal{S}(x, \llbracket a, b \rrbracket, \alpha):=\left\{z \in \mathbb{R}^{n}| | z_{\tilde{i}}-x_{\tilde{i}} \mid \leq \alpha \| x-\right.$ $\left.y^{*} \|_{\infty}\right\}$, where $\alpha \in[0,1[$. Then, $\mathcal{S}(x, \llbracket a, b \rrbracket, \alpha) \cap \llbracket a, b \rrbracket=\emptyset$.
+where $i \in[1 ; n]$, and $\operatorname{sgn}(\cdot)$ is the signum function. Now, assume $x \notin \llbracket a, b \rrbracket$, and let $\tilde{i} \in[1 ; n]$ such that $\left|x_{\tilde{i}}-y_{\tilde{i}}^{*}\right|=\left\|x-y^{*}\right\|_{\infty}>$ 0 , and define $\mathcal{S}(x, \llbracket a, b \rrbracket, \alpha):=\left\{z \in \mathbb{R}^{n}| | z_{\tilde{i}}-x_{\tilde{i}} \mid \leq \alpha \| x-\right.$ $\left.y^{*} \|_{\infty}\right\}$, where $\alpha \in[0,1[$. Then, $\mathcal{S}(x, \llbracket a, b \rrbracket, \alpha) \cap \llbracket a, b \rrbracket=\emptyset$.
 
 Using Lemmas 8 and 9, the following corollary illustrates how to compute a safe hyperrectangle within an operating domain without intersecting with the unsafe set.
 
 Corollary 4: Let $t \in \mathbb{R}_{+}, y \in \tilde{\mathcal{X}}_{\mathrm{o}, t} \backslash \tilde{\mathcal{X}}_{\mathrm{u}, t}$, fix $\alpha \in[0,1[$, and define $\Re\left(y, \tilde{\mathcal{X}}_{\mathrm{o}, t}, \tilde{\mathcal{X}}_{\mathrm{u}, t}, \alpha\right):=\mathcal{H}\left(y, \tilde{\mathcal{X}}_{\mathrm{o}, t}\right) \cap\left(\cap_{i=1}^{N_{\mathrm{u}}} \mathcal{S}(y\right.$, $\left.\left.\tilde{\mathcal{X}}_{\mathrm{u}, t}^{(i)}, \alpha\right)\right)$. Then, $\Re\left(y, \tilde{\mathcal{X}}_{\mathrm{o}, t}, \tilde{\mathcal{X}}_{\mathrm{u}, t}, \alpha\right) \subseteq \tilde{\mathcal{X}}_{\mathrm{o}, t} \backslash \tilde{\mathcal{X}}_{\mathrm{u}, t}$.
 
-Using the safe hyperrectangles in Lemma 8 and Corollary 4, we construct a RRT $\mathscr{T}=(\mathscr{V}, \mathscr{T}, \mathscr{E})$, with a set of vertices $\mathscr{V}$, a set of associated time stamps $\mathscr{T}$, and a set of edges $\mathscr{E}$, such that each vertex (except the first one) is contained in a safe hyperrectangular neighbor of the parent vertex. The metric used in constructing the tree is as follows: the distance between a sample point $x_{s}$ and a point $x_{v}$ in $\mathscr{V}$ with an associated time stamp $t_{v}$ in the set $\mathscr{T}$ is the distance between the sample point and a safe hyperrectangle centered at $x_{v}$ (computed according to Corollary 4 at time $t_{v}$, where the distance is computed as in Lemma 9). If $x_{v}$ happens to be associated with the shortest distance (among all the vertices of the tree), then a new point $x_{\text {new }}$ is added to the tree, which is the point within the safe hyperrectangle of $x_{v}$ that corresponds to that shortest distance (see the formula of CP) and the time stamp for the new point, $t_{\text {new }}$ is computed as
+Using the safe hyperrectangles in Lemma 8 and Corollary 4, we construct a RRT $\mathscr{H}=(\mathscr{V}, \mathscr{T}, \mathscr{E})$, with a set of vertices $\mathscr{V}$, a set of associated time stamps $\mathscr{T}$, and a set of edges $\mathscr{E}$, such that each vertex (except the first one) is contained in a safe hyperrectangular neighbor of the parent vertex. The metric used in constructing the tree is as follows: the distance between a sample point $x_{s}$ and a point $x_{v}$ in $\mathscr{V}$ with an associated time stamp $t_{v}$ in the set $\mathscr{T}$ is the distance between the sample point and a safe hyperrectangle centered at $x_{v}$ (computed according to Corollary 4 at time $t_{v}$, where the distance is computed as in Lemma 9). If $x_{v}$ happens to be associated with the shortest distance (among all the vertices of the tree), then a new point $x_{\text {new }}$ is added to the tree, which is the point within the safe hyperrectangle of $x_{v}$ that corresponds to that shortest distance (see the formula of CP) and the time stamp for the new point, $t_{\text {new }}$ is computed as
 
 $$
 t_{\text {new }}=t_{\text {parent }}+\frac{\left\|x_{\text {new }}-x_{\text {parent }}\right\|}{\alpha_{v}}
@@ -571,7 +588,7 @@ Once the tree $\mathscr{H}$ is constructed, and assuming there exists a point $x
 $$
 \begin{align*}
 \mathrm{r}_{i} & =\operatorname{radius}\left(\Re\left(\mathrm{p}_{i}, \tilde{\mathcal{X}}_{\mathrm{o}, \mathrm{t}_{i}}, \tilde{\mathcal{X}}_{\mathrm{u}, \mathrm{t}_{i}}, \alpha\right)\right), i \in\left[0 ; N_{s}-1\right] \\
-\mathrm{r}_{N_{s}} & =\operatorname{radius}\left(\mathcal{H}\left(\mathrm{p}_{N_{s}}, \tilde{\mathcal{X}}_{\operatorname{target}^{\mathrm{t}} \mathrm{t}_{N_{s}}}\right)\right) . \tag{75}
+\mathrm{r}_{N_{s}} & =\operatorname{radius}\left(\mathcal{H}\left(\mathrm{p}_{N_{s}}, \tilde{\mathcal{X}}_{\operatorname{t}, \mathrm{t}_{N_{s}}}\right)\right) . \tag{75}
 \end{align*}
 $$
 
@@ -633,7 +650,7 @@ $$
 \mathrm{p}_{N_{s}}-\mathrm{r}_{N_{s}} \leq c_{N_{s}}^{N_{p}} \leq \mathrm{p}_{N_{s}}+\mathrm{r}_{N_{s}} . \tag{80}
 \end{equation*}
 $$
-3) Continuity of $p_{d}, \dot{p}_{d}, \ddot{p}_{d}, \dddot{p}_{d}$, and $\dddot{p}_{d}$ at the junction points
+3) Continuity of $p_{d}, \dot{p}_{d}, \ddot{p}_{d}, \dddot{p}_{d}$, and $\ddddot{p}_{d}$ at the junction points
 $$
 \begin{gather*}
 c_{i}^{N_{p}}=c_{i+1}^{0}  \tag{81}\\
@@ -1068,7 +1085,7 @@ Recall the definitions of $R_{d}$ and $\omega_{d}$ given by (12), (14)-(16). Bot
 
 Note that $R_{d}, \omega_{d}$, and $\dot{\omega}_{d}$ are differentiable with respect to $F_{d}$ whenever $F_{d}$ is not zero and $\left\|F_{d}(\cdot)\right\|+F_{d, 3}(\cdot)$ is not zero.
 
-It follows from condition (33) that $V_{1}$ given by (35) is nonnegative over its domain of definition with the associated matrix $M_{1}$ being positive definite. By adapting the proof of Theorem 4, we can show that, at time $t=0, \| k_{p} e_{p}(0)+$ $k_{v} e_{v}(0) \| \leq \mathcal{L}_{f}\left(V_{1}(0), V_{2}(0), 0\right)$. Consequently, $F_{d, 3}(0)=$ $-k_{p} e_{p, 3}(0)-k_{v} e_{v, 3}(t)+m g+m \ddot{p}_{d, 3}(0) \geq-\mathcal{L}_{f}\left(V_{1}(0), V_{2}\right.$ $(0), 0)+m g+\mathcal{L}_{f}\left(V_{1}(0), V_{2}(0), 0\right)-m g+\varepsilon=\varepsilon>0$, implying $\left\|F_{d}(0)\right\|,\left\|F_{d}(0)\right\|+F_{d, 3}(0)>0$. This shows that the right-hand sides of (1)-(4), with (6)-(10) and (11)-(16), are continuously differentiable with respect to $t, p, v, R$, and $\omega$ over a local neighborhood of $(p(0), v(0), R(0), \omega(0))$. Existenceuniqueness results for ordinary differential equations ${ }^{2}$ (see, e.g., [52, Thm. 3.2.1, Prop. 3.2.2., p. 82]) then guarantee the existence of a nonsingleton interval $\tilde{I} \subset I$ containing zero over which the functions $p, v, R$, and $\omega$ are well-defined and differentiable.
+It follows from condition (33) that $V_{1}$ given by (35) is nonnegative over its domain of definition with the associated matrix $M_{1}$ being positive definite. By adapting the proof of Theorem 4, we can show that, at time $t=0, \| k_{p} e_{p}(0)+$ $k_{v} e_{v}(0) \| \leq \mathcal{L}_{f}\left(V_{1}(0), V_{2}(0), 0\right)$. Consequently, $F_{d, 3}(0)=$ $-k_{p} e_{p, 3}(0)-k_{v} e_{v, 3}(0)+m g+m \ddot{p}_{d, 3}(0) \geq-\mathcal{L}_{f}\left(V_{1}(0), V_{2}\right.$ $(0), 0)+m g+\mathcal{L}_{f}\left(V_{1}(0), V_{2}(0), 0\right)-m g+\varepsilon=\varepsilon>0$, implying $\left\|F_{d}(0)\right\|,\left\|F_{d}(0)\right\|+F_{d, 3}(0)>0$. This shows that the right-hand sides of (1)-(4), with (6)-(10) and (11)-(16), are continuously differentiable with respect to $t, p, v, R$, and $\omega$ over a local neighborhood of $(p(0), v(0), R(0), \omega(0))$. Existenceuniqueness results for ordinary differential equations ${ }^{2}$ (see, e.g., [52, Thm. 3.2.1, Prop. 3.2.2., p. 82]) then guarantee the existence of a nonsingleton interval $\tilde{I} \subset I$ containing zero over which the functions $p, v, R$, and $\omega$ are well-defined and differentiable.
 
 Let $\tilde{I}_{1} \subset I$ be the maximal interval of existence over which $p, v, R$, and $\omega$ are well-defined, and define
 
@@ -1115,7 +1132,7 @@ $$
 
 ## D. Proof of Theorem 6
 
-If (26), (62), and (63) hold, then by Corollary 2, welldefinedness is guaranteed, and the bounds (65)-(67) hold over $[0, T]$. In addition, if (69) holds, we have, using Lemma 1, $p(t)=p_{d}(t)+e_{p}(t) \in p_{d}(t)+\tilde{\mathcal{L}}_{p}\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, t\right) \mathbb{B}_{3} \subseteq$ $\left(\mathcal{X}_{\mathrm{s}}-\tilde{\mathcal{L}}_{p}\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, t\right) \mathbb{B}_{3}\right) \backslash\left(\mathcal{X}_{\mathrm{u}}+\tilde{\mathcal{L}}_{p}\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, t\right) \mathbb{B}_{3}\right)+\tilde{\mathcal{L}}_{p}\left(\overline{\mathcal{V}}_{1}\right.$, $\left.\overline{\mathcal{V}}_{2}, t\right) \mathbb{B}_{3} \subseteq \mathcal{X}_{\mathrm{s}} \backslash \mathcal{X}_{\mathrm{u}}, t \in[0, T]$. Similarly, using (71), $p(T) \in$ $p_{d}(T)+\tilde{\mathcal{L}}_{p}\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, T\right) \mathbb{B}_{3} \subseteq \mathcal{X}_{\mathrm{t}}-\tilde{\mathcal{L}}_{p}\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, T\right) \mathbb{B}_{3}+\tilde{\mathcal{L}}_{p}$ $\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, T\right) \mathbb{B}_{3} \subseteq \mathcal{X}_{\mathrm{t}}$. Using condition (70) and the bound on the norm of $e_{v}$, we have, for $t \in[0, T],|\dot{p}(t)| \leq\left|\dot{p}_{d}(t)\right|+$ $\left|e_{v}(t)\right| \leq\left|\dot{p}_{d}(t)\right|+\left\|e_{v}(t)\right\| 1_{3} \leq v_{\text {max }}-\mathcal{L}_{v}\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, t\right) 1_{3}+$ $\tilde{\mathcal{L}}_{v}\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, t\right) 1_{3}=v_{\text {max }}$. Finally, using the definitions of $f$ and $F_{d}$, given by (11) and (12), respectively, Lemma 10, the bound on the norm of $k_{p} e_{p}+k_{v} e_{v}$, and condition (68), we have $|f(t)| \leq\left\|F_{d}(t)\right\|\left\|R e_{3}\right\| \leq\left\|F_{d}(t)\right\| \leq\left\|k_{p} e_{p}(t)+k_{v} e_{v}(t)\right\|+$ $m\left\|a_{\text {max }}\right\| \leq \tilde{\mathcal{L}}_{f}\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, t\right)+m\left\|a_{\text {max }}\right\| \leq f_{\text {max }}, t \in[0, T]$.
+If (26), (62), and (63) hold, then by Corollary 2, welldefinedness is guaranteed, and the bounds (65)-(67) hold over $[0, T]$. In addition, if (69) holds, we have, using Lemma 1, $p(t)=p_{d}(t)+e_{p}(t) \in p_{d}(t)+\tilde{\mathcal{L}}_{p}\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, t\right) \mathbb{B}_{3} \subseteq$ $\left(\mathcal{X}_{\mathrm{s}}-\tilde{\mathcal{L}}_{p}\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, t\right) \mathbb{B}_{3}\right) \backslash\left(\mathcal{X}_{\mathrm{u}}+\tilde{\mathcal{L}}_{p}\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, t\right) \mathbb{B}_{3}\right)+\tilde{\mathcal{L}}_{p}\left(\overline{\mathcal{V}}_{1}\right.$, $\left.\overline{\mathcal{V}}_{2}, t\right) \mathbb{B}_{3} \subseteq \mathcal{X}_{\mathrm{s}} \backslash \mathcal{X}_{\mathrm{u}}, t \in[0, T]$. Similarly, using (71), $p(T) \in$ $p_{d}(T)+\tilde{\mathcal{L}}_{p}\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, T\right) \mathbb{B}_{3} \subseteq \mathcal{X}_{\mathrm{t}}-\tilde{\mathcal{L}}_{p}\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, T\right) \mathbb{B}_{3}+\tilde{\mathcal{L}}_{p}$ $\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, T\right) \mathbb{B}_{3} \subseteq \mathcal{X}_{\mathrm{t}}$. Using condition (70) and the bound on the norm of $e_{v}$, we have, for $t \in[0, T],|\dot{p}(t)| \leq\left|\dot{p}_{d}(t)\right|+$ $\left|e_{v}(t)\right| \leq\left|\dot{p}_{d}(t)\right|+\left\|e_{v}(t)\right\| 1_{3} \leq v_{\text {max }}-\tilde{\mathcal{L}}_{v}\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, t\right) 1_{3}+ \tilde{\mathcal{L}}_{v}\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, t\right) 1_{3}=v_{\text {max }}$. Finally, using the definitions of $f$ and $F_{d}$, given by (11) and (12), respectively, Lemma 10, the bound on the norm of $k_{p} e_{p}+k_{v} e_{v}$, and condition (68), we have $|f(t)| \leq\left\|F_{d}(t)\right\|\left\|R e_{3}\right\| \leq\left\|F_{d}(t)\right\| \leq\left\|k_{p} e_{p}(t)+k_{v} e_{v}(t)\right\|+$ $m\left\|a_{\text {max }}\right\| \leq \tilde{\mathcal{L}}_{f}\left(\overline{\mathcal{V}}_{1}, \overline{\mathcal{V}}_{2}, t\right)+m\left\|a_{\text {max }}\right\| \leq f_{\text {max }}, t \in[0, T]$.
 
 ## E. Proof of Lemma 7
 
