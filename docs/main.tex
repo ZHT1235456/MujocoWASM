@@ -64,7 +64,7 @@
 \author{
   朱华天 \quad Grok~4.6 \quad GPT~5.6~Sol
 }
-\date{2026年8月18日}
+\date{2026年8月19日}
 
 \makeatletter
 \renewcommand{\@maketitle}{%
@@ -94,7 +94,7 @@
 \vspace{0.4em}
 \begin{abstract}
 \noindent
-本文记录一项面向浏览器的四旋翼安全走廊仿真实验：在获悉 Google DeepMind 已将 MuJoCo 物理引擎编译为 WebAssembly 之后，作者尝试把它与 Three.js 的实时三维渲染结合起来，做成可在网页中交互运行、也可经 Tauri~2 打包为桌面程序的仿真软件。问题定位来自近期阅读的 IEEE TAC 论文\cite{serry2026reachavoid}：在杂乱障碍环境中为四旋翼构造计及跟踪误差的安全超矩形管，再在管内用 B\'ezier 曲线与线性规划生成名义轨迹，并以几何跟踪控制驱动机体沿管飞行。前端由 Grok~4.6 开发，GPT~5.6~Sol 负责缺陷修复，Composer~2.5 完成 Tauri~2 桌面封装。本文依次介绍 Three.js 与 MuJoCo WASM 的官方定位、安全走廊方法、代码目录、模型协作分工，并给出在本地网页中实际操作后截取的界面。
+本文记录一项面向浏览器的四旋翼安全走廊仿真实验：在获悉 Google DeepMind 已将 MuJoCo 物理引擎编译为 WebAssembly 之后，作者尝试把它与 Three.js 的实时三维渲染结合起来，做成可在网页中交互运行、也可经 Tauri~2 打包为桌面程序的仿真软件。问题定位来自近期阅读的 IEEE TAC 论文\cite{serry2026reachavoid}：在杂乱障碍环境中为四旋翼构造计及跟踪误差的安全超矩形管，再在管内用 B\'ezier 曲线与线性规划生成名义轨迹，并以几何跟踪控制驱动机体沿管飞行。仓库首先按该文复现\emph{以航点为中心}的对称安全盒；随后笔者给出含给定点的最大体积非对称超矩形算法\cite{zhu2026asymmetric}，作为第二条规划路径，以减少对称扩张造成的可行空间浪费。前端由 Grok~4.6 开发，GPT~5.6~Sol 负责缺陷修复与非对称算法推导，Composer~2.5 完成 Tauri~2 桌面封装。本文依次介绍 Three.js 与 MuJoCo WASM 的官方定位、两条安全走廊算法、代码目录、模型协作分工，并给出在本地网页中实际操作后截取的界面。
 \end{abstract}
 
 \section{引言}
@@ -103,9 +103,9 @@
 
 Serry、Yuan、Chang 与 Liu 在 \emph{IEEE Transactions on Automatic Control} 上的工作\cite{serry2026reachavoid}针对这一问题提出了一条可计算的路径：先对几何跟踪控制做闭环稳定性再分析，得到与具体轨迹弱相关、可写成闭式的时变跟踪误差界；再把该误差界嵌入采样规划，用超矩形安全集构造一条``安全管''（safe tube / corridor）；最后在管内用分段 B\'ezier 曲线与启发式线性规划合成名义轨迹。这样，只要初始状态落在相应的相对内点集合内、且轨迹满足若干易检验的条件，位置、速度与推力约束便具有形式化保证。
 
-笔者在了解到 MuJoCo 已提供官方 WASM 绑定\cite{mujoco-wasm}之后，产生了一个很直接的想法：物理步进可以在浏览器里完成，视觉层则交给 Three.js 去画更接近产品原型的场景。于是本仓库把论文中的规划--跟踪流水线接到网页前端，四旋翼外观沿用 \texttt{reference/} 中按三视图标定的机体模型，动力学则由 \texttt{@mujoco/mujoco} 在 WASM 中积分。本文把``安全走廊''做成可看见、可调节、可打包的仿真器，对论文中的定理证明只作工程化近似。
+笔者在了解到 MuJoCo 已提供官方 WASM 绑定\cite{mujoco-wasm}之后，产生了一个很直接的想法：物理步进可以在浏览器里完成，视觉层则交给 Three.js 去画更接近产品原型的场景。于是本仓库先把 TAC 论文中的规划--跟踪流水线接到网页前端：每个 RRT 节点用 Corollary~4 构造以航点为中心的对称安全超矩形。工程里很快能看到这一限制的代价：障碍在某一侧很近、另一侧很空时，盒子仍被较短的那一侧卡住，走廊被切成许多碎盒子。随后笔者研究了含给定点的最大体积非对称轴对齐超矩形\cite{zhu2026asymmetric}：允许航点落在盒子内部任意位置，二维 $O(N^2)$、三维 $O(N^4)$ 精确求解，并接到同一条 RRT 管与 B\'ezier--LP 流水线上。前端因此从单一``规划路径''改为两个并列按钮。四旋翼外观沿用 \texttt{reference/} 中按三视图标定的机体模型，动力学由 \texttt{@mujoco/mujoco} 在 WASM 中积分。本文把``安全走廊''做成可看见、可切换算法、可打包的仿真器；对 TAC 论文中的定理证明只作工程化近似。
 
-后文安排如下。第~\ref{sec:three}~节与第~\ref{sec:mujoco}~节分别依据官方文档介绍 Three.js 与 MuJoCo WASM；第~\ref{sec:method}~节概述安全走廊方法；第~\ref{sec:impl}~节说明仿真实现、模型协作分工与代码目录；第~\ref{sec:ui}~节给出实际操作截图；第~\ref{sec:tauri}~节简述桌面打包与软件体积；最后给出结语与参考文献。
+后文安排如下。第~\ref{sec:three}~节与第~\ref{sec:mujoco}~节分别依据官方文档介绍 Three.js 与 MuJoCo WASM；第~\ref{sec:method}~节概述安全走廊方法及对称、非对称两种安全盒；第~\ref{sec:impl}~节说明仿真实现、模型协作分工与代码目录；第~\ref{sec:ui}~节给出实际操作截图，两种算法的规划结果都单独展示；第~\ref{sec:tauri}~节简述桌面打包与软件体积；最后给出结语与参考文献。
 
 \section{Three.js：把三维内容放到网页上}
 \label{sec:three}
@@ -188,11 +188,11 @@ F_d&=-k_p e_p-k_v e_v+mge_3+m\ddot{p}_d, \\
 
 \subsection{超矩形安全管与管内 B\'ezier--LP}
 
-规划层对应论文第~VII 节的管构造与轨迹合成，实现上分为三步。
+规划层对应论文第~VII 节的管构造与轨迹合成，实现上分为三步。侧栏的两个规划按钮共用这一骨架，只在每个节点如何生成安全盒上分叉。
 
 \begin{enumerate}
   \item \textbf{采样扩展。}
-        安全管规划模块在经 $\ell(t)$ 与机身半径垫层后的自由空间中做 RRT 式扩展\cite{lavalle1998rrt}。每个新节点不仅记录位置与到达时间，还调用超矩形例程 \texttt{safeRect}，计算仍避开膨胀障碍、且包含该点的轴对齐安全超矩形。
+        安全管规划模块在经 $\ell(t)$ 与机身半径垫层后的自由空间中做 RRT 式扩展\cite{lavalle1998rrt}。每个新节点不仅记录位置与到达时间，还按所选模式调用对称或非对称超矩形例程，计算仍避开膨胀障碍、且包含该点的轴对齐安全超矩形。
 
   \item \textbf{安全管。}
         沿从起点连到终点的节点链，得到一串随时间变化的超矩形，即安全走廊。可视化时画成半透明青绿色盒子，中心线画成黄色折线。
@@ -201,7 +201,21 @@ F_d&=-k_p e_p-k_v e_v+mge_3+m\ddot{p}_d, \\
         \texttt{src/plan/bezier-lp.js} 用 \texttt{glpk.js}\cite{glpkjs} 求解论文 Algorithm~2 风格的线性规划：决策变量是各段 B\'ezier 控制点，约束包括段间 $C^2$ 连续、控制点落在对应超矩形内、以及速度/加速度盒约束。若当前时长不可行，则按比例拉长时间重试，直到得到可行轨迹或达到尝试上限。
 \end{enumerate}
 
-起飞后，\texttt{src/main.js} 按仿真时间在分段 B\'ezier 上取值，把位置、速度、加速度送给几何控制器；MuJoCo 以 $2\,\mathrm{ms}$ 步长、RK4 积分推进刚体。HUD 用若干帧确认机体是否仍在当前盒子内，避免单帧数值抖动造成误报。
+起飞后，\texttt{src/main.js} 按仿真时间在分段 B\'ezier 上取值，把位置、速度、加速度送给几何控制器；MuJoCo 以 $2\,\mathrm{ms}$ 步长、RK4 积分推进刚体。HUD 用若干帧确认机体是否仍在当前盒子内，避免单帧数值抖动造成误报。跟踪层与管内 LP 不区分盒子来源，因此两种规划可以公平对照。
+
+\subsection{对称安全盒：论文 Corollary~4}
+\label{sec:sym}
+
+\texttt{src/plan/hyperrect.js} 按文献\cite{serry2026reachavoid} Lemma~8、Lemma~9 与 Corollary~4 实现。先在收缩后的工作域内取以航点 $y$ 为中心的最大内接超矩形，再对每个膨胀障碍沿无穷范数间隙最大的坐标轴切一块排除板，最后取交集。盒子始终关于 $y$ 对称：航点是几何中心。这保证了形式化推导可直接对照原文，但在障碍分布不对称时，较短一侧会同时限制较长一侧，盒子体积被浪费。前端按钮为``规划路径(对称安全盒)''。
+
+\subsection{非对称安全盒：含给定点的最大体积超矩形}
+\label{sec:asym}
+
+针对上述浪费，笔者给出含给定点的最大体积安全非对称超矩形\cite{zhu2026asymmetric}，实现于 \texttt{src/plan/asymmetric-hyperrect.js}。候选盒子 $\mathcal B(\ell,u)$ 只需满足 $\ell\le p\le u$，不要求 $p$ 位于中心。在对工作域做 Pontryagin 收缩、对障碍做 Minkowski 膨胀之后，问题化为确定性轴对齐几何：盒子须落在有效工作域内，并与每个膨胀障碍无内部相交。
+
+二维中，最优上下边界只需从有限障碍事件坐标中选取；固定纵向区间后，最优左右边界由活跃障碍直接确定，再配合上边界扫描得到 $O(N^2)$ 精确算法。三维中，固定一个坐标方向的一对表面后，问题严格降维为二维最大安全矩形，总复杂度 $O(N^4)$。实现时还按三个方向的事件数量选择最外层枚举轴。前端按钮为``规划路径(非对称安全盒)''。
+
+同一组默认参数下，非对称盒子通常更少、更大：后文实录中，非对称走廊 5 个盒子、最小半宽 $1.06\,\mathrm{m}$，对称走廊 13 个盒子、最小半宽仅 $0.09\,\mathrm{m}$。这正是允许航点贴边所换来的体积。
 
 \section{系统设计与模型分工}
 \label{sec:impl}
@@ -212,9 +226,9 @@ F_d&=-k_p e_p-k_v e_v+mge_3+m\ddot{p}_d, \\
 
 \begin{center}
 \small
-起终点与采样参数
+起终点、采样参数与安全盒模式
 $\;\rightarrow\;$
-RRT 超矩形管
+RRT 超矩形管（对称 / 非对称）
 $\;\rightarrow\;$
 B\'ezier--LP 轨迹
 $\;\rightarrow\;$
@@ -240,8 +254,8 @@ Three.js 同步位姿
 开发按模型能力拆开，仓库提交也大致沿``实现 $\rightarrow$ 修复 $\rightarrow$ 交互打磨 $\rightarrow$ 桌面打包''排列：
 
 \begin{itemize}
-  \item \textbf{Grok~4.6}：前端主体——页面结构、Three.js 场景、规划可视化、面板绑定，以及把论文算法改写成可在浏览器中运行的 JavaScript 模块。
-  \item \textbf{GPT~5.6~Sol}：缺陷修复。实际过程中出现过电机分配符号错误、B\'ezier--LP 过早报不可行、桨叶被深度测试裁掉、走廊违约闪烁等问题，均在后续提交中逐项修正。
+  \item \textbf{Grok~4.6}：前端主体——页面结构、Three.js 场景、规划可视化、面板绑定，以及把论文算法与非对称安全盒改写成可在浏览器中运行的 JavaScript 模块。
+  \item \textbf{GPT~5.6~Sol}：缺陷修复，以及非对称超矩形的问题建模与精确算法推导\cite{zhu2026asymmetric}。实际过程中出现过电机分配符号错误、B\'ezier--LP 过早报不可行、桨叶被深度测试裁掉、走廊违约闪烁等问题，均在后续提交中逐项修正。
   \item \textbf{Composer~2.5}：在前端可运行之后，用 Tauri~2 把同一套 Vite 应用封装为 Windows 桌面程序（NSIS 安装包），并配置跨源隔离响应头，使 WASM 在 WebView2 中与浏览器行为一致。
 \end{itemize}
 
@@ -258,7 +272,7 @@ Three.js 同步位姿
 \toprule
 路径 & 说明 \\
 \midrule
-\texttt{index.html} & 单页入口：视口、HUD、任务/显示/规划侧栏 \\
+\texttt{index.html} & 单页入口：视口、HUD、双规划按钮与显示/规划侧栏 \\
 \texttt{package.json} & 依赖 \texttt{three}、\texttt{@mujoco/mujoco}、\texttt{glpk.js}；脚本含 \texttt{dev}/\texttt{tauri} \\
 \texttt{vite.config.js} & WASM 资源、COOP/COEP、\texttt{@drone} 别名、Tauri 开发端口 \\
 \texttt{src/main.js} & 应用主循环：规划、起飞、跟拍、违约检测 \\
@@ -266,55 +280,66 @@ Three.js 同步位姿
 \texttt{src/world-scene.js} & 工作域、起终点、障碍盒、质量与电机站点 \\
 \texttt{src/coords.js} & MuJoCo $Z$-up 与 Three.js $Y$-up 互转 \\
 \texttt{src/sim/mujoco.js} & WASM 加载、建模、\texttt{mj\_step} \\
-\texttt{src/plan/} & 超矩形、RRT 管、B\'ezier、碰撞与 LP \\
+\texttt{src/plan/} & 对称超矩形、非对称最大体积盒、RRT 管、B\'ezier 与 LP \\
 \texttt{src/control/} & 几何控制、混控与悬停推力 \\
 \texttt{src/vis/} & 渲染器、场景、机体同步、走廊网格 \\
 \texttt{src/ui/panel.js} & 侧栏绑定、忙碌遮罩、指标刷新 \\
 \texttt{reference/drone/} & 按三视图标定的四旋翼外观 \\
-\texttt{paper/} & TAC 论文 Markdown 文本，供对照实现 \\
-\texttt{scripts/} & 几何控制、管、LP、MuJoCo 与飞行的节点测试 \\
+\texttt{paper/} & TAC 论文 Markdown，以及非对称超矩形 \LaTeX 推导 \\
+\texttt{scripts/} & 几何控制、非对称盒、管、LP、MuJoCo 与飞行的节点测试 \\
 \texttt{src-tauri/} & Tauri~2 工程：窗口、图标、NSIS 打包 \\
 \texttt{docs/} & 本文 \LaTeX 源文件与界面截图 \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-\texttt{src/plan} 内部再按论文对象拆分：\texttt{hyperrect.js} 做轴对齐盒的膨胀/收缩与安全矩形；\texttt{rrt-tube.js} 产出带时间戳的盒子链；\texttt{bezier.js}/\texttt{bezier-tube.js} 负责 Bernstein 基与管内采样；\texttt{bezier-lp.js} 调用 GLPK。测试脚本不依赖浏览器，便于在改 LP 约束或混控符号后快速回归。
+\texttt{src/plan} 内部按对象拆分：\texttt{hyperrect.js} 做轴对齐盒的膨胀/收缩与论文 Corollary~4 对称安全矩形；\texttt{asymmetric-hyperrect.js} 做最大体积非对称盒；\texttt{rrt-tube.js} 按 \texttt{rectMode} 产出带时间戳的盒子链；\texttt{bezier.js}/\texttt{bezier-tube.js} 负责 Bernstein 基与管内采样；\texttt{bezier-lp.js} 调用 GLPK。测试脚本不依赖浏览器，便于在改 LP 约束、非对称几何或混控符号后快速回归。
 
 \section{界面与运行实录}
 \label{sec:ui}
 
-本地以 Vite 开发服务器打开页面（\texttt{npm run dev}）。默认俯视工作域：浅色障碍块散布在深色地面上，四旋翼停在左下角起点，右侧是任务、显示、规划与起终点面板。加载 WASM 完成后，状态栏提示``就绪：点击规划路径''，走廊状态为``待机''，如图~\ref{fig:idle}。
+本地以 Vite 开发服务器打开页面（\texttt{npm run dev}）。默认俯视工作域：浅色障碍块散布在深色地面上，四旋翼停在左下角起点，右侧是任务、显示、规划与起终点面板。任务栏现有两个并列的规划按钮：``规划路径(对称安全盒)''与``规划路径(非对称安全盒)''；起飞跟踪在尚未得到名义轨迹时保持禁用。加载 WASM 完成后，状态栏提示``就绪：请选择对称或非对称路径规划''，走廊状态为``待机''，如图~\ref{fig:idle}。
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.96\textwidth]{figures/01-idle-overview.png}
-\caption{仿真启动后的俯视场景。左侧 HUD 给出路径长度、最小盒半宽、仿真时间与走廊状态；右侧可调节采样次数、跟踪裕度与速度上限。}
+\caption{仿真启动后的俯视场景。左侧 HUD 给出路径长度、最小盒半宽、仿真时间与走廊状态；右侧可选择两种安全盒算法，并调节采样次数、跟踪裕度与速度上限。}
 \label{fig:idle}
 \end{figure}
 
-点击``规划路径''后，界面进入忙碌遮罩，主线程进行 RRT 扩展与线性规划。一次典型运行得到路径长度 $38.29\,\mathrm{m}$。规划成功后，青绿色超矩形管从起点绕过门柱、矮墙与塔楼连到右上角终点，黄色中心线穿管而过，走廊状态变为``已规划''，如图~\ref{fig:plan}。打开``RRT 树''后，还能看见采样阶段留下的浅色树枝，用以对照最终被保留的那条盒子链，如图~\ref{fig:rrt}。
+下述实录均未改动默认起终点（起点 $(-8,1.4,-8)$，终点 $(8,1.8,8)$）与默认采样次数 $500$、跟踪裕度 $0.18\,\mathrm{m}$、规划限速 $5.0\,\mathrm{m/s}$。点击某一规划按钮后，界面进入忙碌遮罩，主线程进行 RRT 扩展与线性规划。
+
+先点击``规划路径(对称安全盒)''。一次典型运行得到路径长度 $34.80\,\mathrm{m}$、13 个安全盒、最小半宽 $0.09\,\mathrm{m}$，安全管速度 $4.0\,\mathrm{m/s}$、时长 $50.0\,\mathrm{s}$。青绿色超矩形管从起点绕过障碍连到右上角终点，黄色中心线穿管而过，走廊状态变为``已规划''，如图~\ref{fig:plan-sym}。盒子明显更碎：航点必须位于几何中心，较短一侧会同时限制较长一侧。
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.96\textwidth]{figures/06-planned-symmetric.png}
+\caption{对称安全盒规划完成。盒子以各航点为中心，数量多、最小半宽紧，对应 TAC 论文 Corollary~4。}
+\label{fig:plan-sym}
+\end{figure}
+
+再在同一场景点击``规划路径(非对称安全盒)''。一次典型运行得到路径长度 $28.75\,\mathrm{m}$、仅 5 个安全盒、最小半宽 $1.06\,\mathrm{m}$，安全管速度 $4.0\,\mathrm{m/s}$、时长 $91.2\,\mathrm{s}$，如图~\ref{fig:plan-asym}。盒子可以贴着障碍把空侧撑开，走廊更宽、段数更少。打开``RRT 树''后，还能看见采样阶段留下的浅色树枝，用以对照最终被保留的那条盒子链，如图~\ref{fig:rrt}。
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.96\textwidth]{figures/02-planned-corridor.png}
-\caption{规划完成后的安全超矩形管与中心线。起飞按钮此时才可用，避免在无名义轨迹时启动几何跟踪。}
-\label{fig:plan}
+\caption{非对称安全盒规划完成。航点不必位于盒子中心，体积按最大安全超矩形精确求解，盒子更少、更宽。}
+\label{fig:plan-asym}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.96\textwidth]{figures/03-corridor-rrt-tree.png}
-\caption{打开 RRT 树显示后的同一规划结果。树展示了采样搜索的覆盖范围，走廊则是从树中提取并经安全矩形计算得到的可行通道。}
+\caption{非对称规划结果上打开 RRT 树。树展示了采样搜索的覆盖范围，走廊则是从树中提取并经最大体积安全矩形计算得到的可行通道。}
 \label{fig:rrt}
 \end{figure}
 
-点击``起飞跟踪''后，几何控制开始把 MuJoCo 中的自由刚体拉向 B\'ezier 参考。图~\ref{fig:fly} 截取自飞行过程：仿真时间约 $17\,\mathrm{s}$，走廊状态为``管内''，状态栏显示``几何控制跟踪安全管''。再打开``尾部跟拍''，相机落到机体后方，可以看清 \texttt{reference/drone} 的机身、桨叶与管内黄色参考线。机体到达终点后改为定点悬停，图~\ref{fig:follow} 即悬停时刻的跟拍画面，仿真时间约 $92\,\mathrm{s}$，状态为``到达终点，定点悬停''。
+点击``起飞跟踪''后，几何控制开始把 MuJoCo 中的自由刚体拉向 B\'ezier 参考。图~\ref{fig:fly} 截取自非对称走廊的飞行过程：仿真时间约 $16.5\,\mathrm{s}$，走廊状态为``管内''，状态栏显示``已暂停''（便于截图）。再打开``尾部跟拍''，相机落到机体后方，可以看清 \texttt{reference/drone} 的机身、桨叶与管内黄色参考线。机体到达终点后改为定点悬停，图~\ref{fig:follow} 即悬停时刻的跟拍画面，仿真时间约 $93\,\mathrm{s}$，状态为``到达终点，定点悬停''。
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.96\textwidth]{figures/04-flight-tracking.png}
-\caption{几何控制跟踪过程中的俯视。机体沿黄色中心线穿过走廊，HUD 指示仍在管内。}
+\caption{非对称走廊上的几何控制跟踪。机体沿黄色中心线穿过走廊，HUD 指示仍在管内，仿真时间约 $16.5\,\mathrm{s}$。}
 \label{fig:fly}
 \end{figure}
 
@@ -325,7 +350,7 @@ Three.js 同步位姿
 \label{fig:follow}
 \end{figure}
 
-上述操作并未改动默认起终点（起点 $(-8,1.4,-8)$，终点 $(8,1.8,8)$）与默认采样次数 $5000$。交互上还有两点值得记下：规划与飞行期间会锁定起终点和采样滑条，以免中途改参数造成管与控制器不一致；走廊违约需连续若干帧确认后才改写 HUD，以免数值抖动造成误报。
+交互上还有两点值得记下：规划与飞行期间会锁定起终点和采样滑条，以免中途改参数造成管与控制器不一致；走廊违约需连续若干帧确认后才改写 HUD，以免数值抖动造成误报。对称与非对称共用同一套跟踪控制，切换算法只改变安全管的几何形状。
 
 \section{用 Tauri~2 打包桌面程序}
 \label{sec:tauri}
@@ -338,9 +363,9 @@ Three.js 同步位姿
 
 \section{结语}
 
-本文把三件事情接到同一份可运行的前端上：MuJoCo 官方 WASM 让物理引擎出现在网页里；Three.js 把科研场景做成可演示的三维界面；IEEE TAC 的安全走廊工作\cite{serry2026reachavoid}为``在障碍中飞过去''提供了计及跟踪误差的安全语义。模型分工同样清楚：Grok~4.6 铺开前端与算法模块，GPT~5.6~Sol 对着具体失效模式修改，Composer~2.5 把同一套页面送进 Tauri 窗口。
+本文把三件事情接到同一份可运行的前端上：MuJoCo 官方 WASM 让物理引擎出现在网页里；Three.js 把科研场景做成可演示的三维界面；安全走廊为``在障碍中飞过去''提供计及跟踪误差的安全语义。规划层现在有两条并列路径：一条复现 IEEE TAC 的中心化对称安全盒\cite{serry2026reachavoid}，另一条是笔者给出的最大体积非对称超矩形\cite{zhu2026asymmetric}。模型分工同样清楚：Grok~4.6 铺开前端与算法模块，GPT~5.6~Sol 对着具体失效模式修改并完成非对称算法推导，Composer~2.5 把同一套页面送进 Tauri 窗口。
 
-当前实现仍是论文方法的工程近似。时变误差界被写成指数裕度，超矩形与 LP 约束针对浏览器算力做了裁剪，碰撞包络取球体，外形网格仅用于显示。后续可以把文献中的闭式界与奇异回避条件更严格地搬进 \texttt{src/plan}，并用脚本批量统计越管率、跟踪误差包络是否被界罩住。那些工作仍适合按模型分工推进：把``安全''的定义写成能在 WASM 与 WebGL 里跑起来的代码。
+当前实现仍是论文方法的工程近似。时变误差界被写成指数裕度，超矩形与 LP 约束针对浏览器算力做了裁剪，碰撞包络取球体，外形网格仅用于显示。后续可以把文献中的闭式界与奇异回避条件更严格地搬进 \texttt{src/plan}，并用脚本批量统计两种安全盒的越管率、盒子体积与跟踪误差包络。那些工作仍适合按模型分工推进：把``安全''的定义写成能在 WASM 与 WebGL 里跑起来的代码。
 
 源码与本文所用截图见：
 \begin{center}
