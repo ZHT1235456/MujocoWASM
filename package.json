@@ -10,7 +10,7 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "test": "node scripts/test-geometric.mjs && node scripts/test-tube.mjs && node scripts/test-bezier-lp.mjs && node scripts/test-mujoco.mjs && node scripts/test-flight.mjs"
+    "test": "node scripts/test-geometric.mjs && node scripts/test-asymmetric-hyperrect.mjs && node scripts/test-tube.mjs && node scripts/test-bezier-lp.mjs && node scripts/test-mujoco.mjs && node scripts/test-flight.mjs"
   },
   "dependencies": {
     "@mujoco/mujoco": "^3.11.0",

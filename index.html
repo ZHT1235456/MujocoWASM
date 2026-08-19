@@ -41,7 +41,8 @@
       <section class="panel-section task-section">
         <h2>任务</h2>
         <div class="action-grid">
-          <button id="c-plan" class="primary config-control" data-config-control>规划路径</button>
+          <button id="c-plan-symmetric" class="primary config-control" data-config-control>规划路径(对称安全盒)</button>
+          <button id="c-plan-asymmetric" class="primary config-control" data-config-control>规划路径(非对称安全盒)</button>
           <button id="c-fly" class="accent" disabled>起飞跟踪</button>
           <button id="c-pause" disabled>暂停</button>
           <button id="c-reset">重置</button>
@@ -66,8 +67,8 @@
           <span id="config-lock-state">起飞后锁定</span>
         </div>
         <label class="slider">
-          <span>采样次数<em id="v-iters">5000</em></span>
-          <input id="c-iters" class="config-control" data-config-control type="range" min="400" max="10000" step="100" value="5000" />
+          <span>采样次数<em id="v-iters">500</em></span>
+          <input id="c-iters" class="config-control" data-config-control type="range" min="400" max="1000" step="100" value="500" />
         </label>
         <label class="slider">
           <span>跟踪裕度<em id="v-radius">0.18 m</em></span>

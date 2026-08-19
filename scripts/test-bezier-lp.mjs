@@ -19,6 +19,7 @@ const planned = await planSafeTube([-8, 1.4, -8], [8, 1.8, 8], {
   alphaV: 4,
 });
 assert(planned.ok, planned.message || 'regression tube planning failed');
+assert(planned.rectMode === 'symmetric', 'omitting rectMode should preserve symmetric planning');
 
 const trajectory = await bezierLpInTube(planned.boxes, { np: 9 });
 assert(trajectory.ok, trajectory.message || 'extended LP duration search failed');

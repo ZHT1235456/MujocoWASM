@@ -508,7 +508,8 @@ button.active {
   gap: 8px;
 }
 
-#c-plan,
+#c-plan-symmetric,
+#c-plan-asymmetric,
 #c-fly {
   grid-column: 1 / -1;
   min-height: 48px;

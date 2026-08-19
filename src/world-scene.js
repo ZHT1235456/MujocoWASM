@@ -22,7 +22,7 @@ export const WORLD = {
   start: [-8.0, 1.4, -8.0],
   goal: [8.0, 1.8, 8.0],
   obstacles: [
-    { name: 'tower_c', pos: [0.0, 1.7, 0.2], size: [2.2, 3.4, 2.0] },
+    { name: 'tower_c', pos: [0.0, 2.4, 0.2], size: [2.2, 4.8, 2.0] },
     { name: 'block_a', pos: [-3.6, 1.4, -2.2], size: [2.4, 2.8, 1.8] },
     { name: 'block_b', pos: [3.8, 1.8, -3.0], size: [2.0, 3.6, 2.2] },
     { name: 'wall_n', pos: [-1.2, 1.1, 4.4], size: [5.5, 2.2, 1.1] },
@@ -31,5 +31,10 @@ export const WORLD = {
     { name: 'low_bar', pos: [2.2, 0.7, 6.2], size: [4.0, 1.4, 1.2] },
     { name: 'gate_l', pos: [-5.0, 1.5, -5.4], size: [1.0, 3.0, 2.6] },
     { name: 'gate_r', pos: [-2.4, 1.5, -5.4], size: [1.0, 3.0, 2.6] },
+    { name: 'upperleft_block', pos: [4.9, 1.2, -7.4], size: [1.3, 2.4, 1.7] },
+    { name: 'upperleft_tower', pos: [7.0, 1.6, -5.5], size: [1.4, 3.2, 1.4] },
+    { name: 'upperleft_bar', pos: [7.8, 0.9, -8.0], size: [1.0, 1.8, 2.4] },
+    { name: 'lowerright_block', pos: [-6.2, 1.1, 5.4], size: [1.5, 2.2, 1.5] },
+    { name: 'lowerright_bar', pos: [-8.0, 0.9, 7.8], size: [1.2, 1.8, 2.0] },
   ],
 };

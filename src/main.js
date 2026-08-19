@@ -208,14 +208,16 @@ app.setFollow = (enabled) => {
 
 app.plan = async (start, goal, opts) => {
   if (app.planning) return;
+  const rectMode = opts.rectMode === 'asymmetric' ? 'asymmetric' : 'symmetric';
+  const rectModeLabel = rectMode === 'asymmetric' ? '非对称' : '对称';
   app.planning = true;
   app.paused = true;
   app.flying = false;
   app.holding = false;
   setPauseEnabled(false);
   setFlyEnabled(false);
-  setBusy(true, '正在规划安全超矩形管…');
-  setStatus('正在运行 Algorithm 1（安全管 RRT），请稍候…');
+  setBusy(true, `正在规划${rectModeLabel}安全超矩形管…`);
+  setStatus(`正在运行 Algorithm 1（${rectModeLabel}安全管 RRT），请稍候…`);
   currentStartGoal(start, goal);
   await waitFrame();
   try {
@@ -231,8 +233,8 @@ app.plan = async (start, goal, opts) => {
       tubeAttempts = attempt + 1;
       setStatus(
         attempt === 0
-          ? `正在运行 Algorithm 1（安全管速度 ${tubeSpeed.toFixed(1)} m/s）…`
-          : `LP 不可行，正以 ${tubeSpeed.toFixed(1)} m/s 重新生成安全管（${tubeAttempts}/${MAX_TUBE_ATTEMPTS}）…`
+          ? `正在运行 Algorithm 1（${rectModeLabel}安全管速度 ${tubeSpeed.toFixed(1)} m/s）…`
+          : `LP 不可行，正以 ${tubeSpeed.toFixed(1)} m/s 重新生成${rectModeLabel}安全管（${tubeAttempts}/${MAX_TUBE_ATTEMPTS}）…`
       );
       await waitFrame();
 
@@ -240,6 +242,7 @@ app.plan = async (start, goal, opts) => {
         nv: opts.iters,
         margin0: opts.rMax,
         alphaV: tubeSpeed,
+        rectMode,
         yieldFn: waitFrame,
       });
       if (!candidate.ok || candidate.boxes.length < 2) {
@@ -249,7 +252,7 @@ app.plan = async (start, goal, opts) => {
       }
 
       lastTube = candidate;
-      setStatus(`安全管已生成，正在以 vmax=${requestedSpeed.toFixed(1)} m/s 求解轨迹 LP…`);
+      setStatus(`${rectModeLabel}安全管已生成，正在以 vmax=${requestedSpeed.toFixed(1)} m/s 求解轨迹 LP…`);
       await waitFrame();
       const candidateTraj = await bezierLpInTube(candidate.boxes, {
         np: 9,
@@ -266,10 +269,10 @@ app.plan = async (start, goal, opts) => {
     }
 
     if (!planned || !traj) {
-      setStatus(`自动降低安全管速度后仍未找到可行轨迹：${lastFailure}`);
+      setStatus(`自动降低${rectModeLabel}安全管速度后仍未找到可行轨迹：${lastFailure}`);
       app.planResult = lastTube
         ? { ...lastTube, samples: [], radii: [], violated: false }
-        : { nodes: [], samples: [], radii: [], boxes: [], violated: false };
+        : { nodes: [], samples: [], radii: [], boxes: [], rectMode, violated: false };
       redrawPath();
       return;
     }
@@ -305,7 +308,7 @@ app.plan = async (start, goal, opts) => {
       inside: '已规划',
     });
     setStatus(
-      `规划完成：${planned.boxes.length} 个安全盒，vmax ${requestedSpeed.toFixed(1)} m/s，安全管速度 ${planned.alphaV.toFixed(1)} m/s，时长 ${planned.duration.toFixed(1)} s`,
+      `${rectModeLabel}规划完成：${planned.boxes.length} 个安全盒，vmax ${requestedSpeed.toFixed(1)} m/s，安全管速度 ${planned.alphaV.toFixed(1)} m/s，时长 ${planned.duration.toFixed(1)} s`,
       5000
     );
   } finally {
@@ -535,7 +538,7 @@ async function main() {
     bindPanel(app);
     window.__app = app;
     window.__body = body;
-    setStatus('就绪：点击「规划路径」');
+    setStatus('就绪：请选择对称或非对称路径规划');
     animate();
   } catch (err) {
     console.error(err);

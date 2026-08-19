@@ -39,13 +39,16 @@ export function bindPanel(app) {
     app.planningConfigChanged?.();
   });
 
-  $('c-plan').addEventListener('click', () => {
+  const plan = (rectMode) => {
     app.plan(readStart(), readGoal(), {
       iters: Number($('c-iters').value),
       rMax: Number($('c-radius').value) / 100,
       speed: Number($('c-speed').value) / 10,
+      rectMode,
     });
-  });
+  };
+  $('c-plan-symmetric').addEventListener('click', () => plan('symmetric'));
+  $('c-plan-asymmetric').addEventListener('click', () => plan('asymmetric'));
   $('c-fly').addEventListener('click', () => app.fly(Number($('c-speed').value) / 10));
   $('c-pause').addEventListener('click', () => app.togglePause());
   $('c-reset').addEventListener('click', () => app.reset(readStart()));

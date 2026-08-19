@@ -53,6 +53,18 @@ export function contains(aabb, p) {
   );
 }
 
+/** Whether p lies in the strict interior of an axis-aligned box. */
+export function containsInterior(aabb, p) {
+  return (
+    p[0] > aabb.min[0] &&
+    p[0] < aabb.max[0] &&
+    p[1] > aabb.min[1] &&
+    p[1] < aabb.max[1] &&
+    p[2] > aabb.min[2] &&
+    p[2] < aabb.max[2]
+  );
+}
+
 export function intersectAabb(a, b) {
   const min = [Math.max(a.min[0], b.min[0]), Math.max(a.min[1], b.min[1]), Math.max(a.min[2], b.min[2])];
   const max = [Math.min(a.max[0], b.max[0]), Math.min(a.max[1], b.max[1]), Math.min(a.max[2], b.max[2])];

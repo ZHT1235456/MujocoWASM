@@ -1,0 +1,1568 @@
+\documentclass[UTF8,12pt,a4paper]{ctexart}
+
+\usepackage{amsmath,amssymb,mathtools,bm}
+\usepackage{amsthm}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\floatname{algorithm}{算法}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\hypersetup{hidelinks}
+
+\geometry{left=2.6cm,right=2.6cm,top=2.5cm,bottom=2.5cm}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.35em}
+
+\title{含给定点的最大体积安全非对称超矩形：\\
+问题建模与二维、三维精确算法}
+\author{朱华天 \and GPT 5.6 Sol}
+\date{2026年8月19日}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\vol}{\operatorname{Vol}}
+\newcommand{\area}{\operatorname{Area}}
+\newcommand{\interior}{\operatorname{int}}
+\newcommand{\argmax}{\operatorname*{arg\,max}}
+\newcommand{\argmin}{\operatorname*{arg\,min}}
+
+\newtheorem{lemma}{引理}
+\newtheorem{theorem}{定理}
+\newtheorem{proposition}{命题}
+\newtheorem{remark}{注}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+本文研究一个含给定点的最大体积安全非对称轴对齐超矩形问题。给定一个有界轴对齐工作空间、若干轴对齐超矩形障碍物、一个固定的分量位置误差界，以及一个给定安全点，首先通过对障碍物进行 Minkowski 膨胀、对工作空间进行 Pontryagin 收缩，将位置误差不确定性吸收到确定性的几何预处理中。随后，在得到的有效自由空间中，寻找一个包含给定点、完全位于有效工作空间内、且与所有膨胀后障碍物不发生内部相交的最大体积轴对齐超矩形。
+
+本文首先给出一般 $n$ 维问题的统一建模，然后重点研究二维和三维情形。对于二维问题，证明最优矩形的上下边界只需从有限的障碍物事件坐标中选取；在固定纵向区间后，最优左右边界可以直接由活跃障碍物确定，由此构造一个全局精确的 $O(N^2)$ 时间算法。对于三维问题，固定一个坐标方向上的上下边界后，可将问题严格降维为一个二维最大安全矩形问题，从而得到一个全局精确的 $O(N^4)$ 时间算法。文中给出完整的正确性论证、复杂度分析以及伪代码。
+\end{abstract}
+
+\section{引言}
+
+在机器人运动规划、安全区域构造、局部轨迹优化、鲁棒控制以及碰撞规避等问题中，经常需要围绕一个给定安全状态构造一个尽可能大的无碰撞轴对齐区域。
+
+若要求所构造区域关于给定点对称，则问题可以用单一半径或各坐标轴方向上的对称扩张量描述。但在一般障碍环境中，给定点附近不同方向的可用自由空间通常高度不对称。强制对称会浪费大量可行空间。因此，本文允许给定点位于所求矩形内部的任意位置，并在此基础上最大化矩形面积或盒子体积。
+
+进一步地，考虑位置误差或状态估计误差时，可利用固定误差界将不确定性通过集合运算转化为确定性的障碍物膨胀和工作空间收缩。这样，后续算法只需处理确定性的轴对齐几何问题。
+
+本文主要关注以下三个层次：
+\begin{enumerate}[label=(\arabic*)]
+    \item 建立一般 $n$ 维最大体积安全非对称超矩形模型；
+    \item 对 $n=2$ 推导全局精确的 $O(N^2)$ 算法；
+    \item 对 $n=3$ 利用降维思想构造全局精确的 $O(N^4)$ 算法。
+\end{enumerate}
+
+\section{一般问题建模}
+
+\subsection{工作空间与障碍物}
+
+考虑 $n$ 维欧氏空间 $\R^n$。所有向量不等式均按分量理解。
+
+设原始工作空间为轴对齐超矩形
+\begin{equation}
+    \mathcal W
+    :=
+    \left\{
+    x\in\R^n
+    \,\middle|\,
+    \underline w\le x\le \overline w
+    \right\},
+\end{equation}
+其中
+\[
+\underline w,\overline w\in\R^n,
+\qquad
+\underline w<\overline w.
+\]
+
+环境中存在 $N$ 个轴对齐超矩形障碍物
+\begin{equation}
+    \mathcal O_j
+    :=
+    \left\{
+    x\in\R^n
+    \,\middle|\,
+    \underline o_j\le x\le \overline o_j
+    \right\},
+    \qquad
+    j=1,\ldots,N,
+\end{equation}
+其中
+\[
+\underline o_j,\overline o_j\in\R^n,
+\qquad
+\underline o_j<\overline o_j.
+\]
+
+给定一点
+\begin{equation}
+    p\in\R^n,
+\end{equation}
+要求最终构造出的安全超矩形包含该点。
+
+\subsection{固定位置误差界}
+
+设位置误差 $e\in\R^n$ 满足
+\begin{equation}
+    -\rho\le e\le\rho,
+\end{equation}
+其中
+\[
+\rho\in\R_+^n.
+\]
+
+误差集合为
+\begin{equation}
+    \mathcal E
+    :=
+    \left\{
+    e\in\R^n
+    \,\middle|\,
+    -\rho\le e\le\rho
+    \right\}.
+\end{equation}
+
+为了保证在任意允许误差下仍然位于工作空间内且不与原始障碍物发生碰撞，对工作空间和障碍物进行确定性几何预处理。
+
+\subsection{工作空间收缩}
+
+定义有效工作空间
+\begin{equation}
+    \widetilde{\mathcal W}
+    :=
+    \mathcal W\ominus\mathcal E.
+\end{equation}
+
+对于轴对齐超矩形，
+\begin{equation}
+    \widetilde{\mathcal W}
+    =
+    \left\{
+    x\in\R^n
+    \,\middle|\,
+    \underline w+\rho
+    \le x\le
+    \overline w-\rho
+    \right\}.
+\end{equation}
+
+记
+\begin{equation}
+    \underline{\widetilde w}
+    :=
+    \underline w+\rho,
+    \qquad
+    \overline{\widetilde w}
+    :=
+    \overline w-\rho.
+\end{equation}
+
+若存在某个坐标 $k$ 使
+\[
+\underline w_k+\rho_k
+>
+\overline w_k-\rho_k,
+\]
+则有效工作空间为空，问题无可行解。
+
+\subsection{障碍物膨胀}
+
+对每个障碍物定义
+\begin{equation}
+    \widetilde{\mathcal O}_j
+    :=
+    \mathcal O_j\oplus\mathcal E.
+\end{equation}
+
+对于轴对齐超矩形，
+\begin{equation}
+    \widetilde{\mathcal O}_j
+    =
+    \left\{
+    x\in\R^n
+    \,\middle|\,
+    \underline o_j-\rho
+    \le x\le
+    \overline o_j+\rho
+    \right\}.
+\end{equation}
+
+记
+\begin{equation}
+    \underline{\widetilde o}_j
+    :=
+    \underline o_j-\rho,
+    \qquad
+    \overline{\widetilde o}_j
+    :=
+    \overline o_j+\rho.
+\end{equation}
+
+有效自由空间为
+\begin{equation}
+    \widetilde{\mathcal F}
+    :=
+    \widetilde{\mathcal W}
+    \setminus
+    \bigcup_{j=1}^{N}
+    \widetilde{\mathcal O}_j.
+\end{equation}
+
+本文假设给定点满足
+\begin{equation}
+    p\in\widetilde{\mathcal F}.
+\end{equation}
+
+由于本文允许最终安全矩形与膨胀障碍物边界接触，因此更精确地说，只需要 $p$ 不位于任一膨胀障碍物的内部。
+
+\subsection{非对称安全超矩形}
+
+定义待求轴对齐超矩形
+\begin{equation}
+    \mathcal B(\ell,u)
+    :=
+    \left\{
+    x\in\R^n
+    \,\middle|\,
+    \ell\le x\le u
+    \right\}.
+\end{equation}
+
+要求
+\begin{equation}
+    \ell\le p\le u.
+\end{equation}
+
+也可以定义相对于给定点的非对称扩张量
+\begin{equation}
+    r^-:=p-\ell,
+    \qquad
+    r^+:=u-p,
+\end{equation}
+其中
+\[
+r^-,r^+\in\R_+^n.
+\]
+
+于是
+\begin{equation}
+    \mathcal B
+    =
+    \left\{
+    x\in\R^n
+    \,\middle|\,
+    p-r^-\le x\le p+r^+
+    \right\}.
+\end{equation}
+
+一般不要求
+\[
+r^-=r^+.
+\]
+
+因此，给定点 $p$ 可以位于安全超矩形内部的任意位置。
+
+\subsection{工作空间约束}
+
+候选超矩形必须满足
+\begin{equation}
+    \mathcal B(\ell,u)
+    \subseteq
+    \widetilde{\mathcal W}.
+\end{equation}
+
+等价于
+\begin{equation}
+    \underline{\widetilde w}
+    \le\ell\le p\le u
+    \le\overline{\widetilde w}.
+\end{equation}
+
+\subsection{障碍物避让约束}
+
+对于每个膨胀障碍物，要求
+\begin{equation}
+    \interior(\mathcal B)
+    \cap
+    \interior(\widetilde{\mathcal O}_j)
+    =
+    \varnothing.
+\end{equation}
+
+对于轴对齐超矩形，上式等价于至少存在一个坐标方向 $k$ 使得两者在该方向上分离：
+\begin{equation}
+    u_k\le \underline{\widetilde o}_{j,k}
+    \quad\text{或}\quad
+    \ell_k\ge \overline{\widetilde o}_{j,k}.
+\end{equation}
+
+因此每个障碍物产生一个含 $2n$ 个分支的析取约束：
+\begin{equation}
+\begin{aligned}
+    &u_1\le \underline{\widetilde o}_{j,1}
+    \lor
+    \ell_1\ge \overline{\widetilde o}_{j,1}
+    \lor\cdots\lor\\
+    &u_n\le \underline{\widetilde o}_{j,n}
+    \lor
+    \ell_n\ge \overline{\widetilde o}_{j,n}.
+\end{aligned}
+\end{equation}
+
+\subsection{最大体积优化问题}
+
+安全超矩形体积为
+\begin{equation}
+    \vol(\mathcal B)
+    =
+    \prod_{k=1}^{n}(u_k-\ell_k).
+\end{equation}
+
+因此一般问题为
+\begin{equation}
+\boxed{
+\begin{aligned}
+    \max_{\ell,u}\quad
+    &
+    \prod_{k=1}^{n}(u_k-\ell_k)
+    \\
+    \text{s.t.}\quad
+    &
+    \underline{\widetilde w}
+    \le\ell\le p\le u
+    \le\overline{\widetilde w},
+    \\
+    &
+    \interior(\mathcal B(\ell,u))
+    \cap
+    \interior(\widetilde{\mathcal O}_j)
+    =
+    \varnothing,
+    \\
+    &
+    j=1,\ldots,N.
+\end{aligned}}
+\end{equation}
+
+该模型含有明显的组合析取结构。一般维数下可考虑混合整数规划、分支定界或专门的计算几何算法。二维与三维中，可以进一步利用轴对齐结构得到更高效的精确算法。
+
+\section{二维问题}
+
+\subsection{二维记号}
+
+令
+\begin{equation}
+    \widetilde{\mathcal W}
+    =
+    [x_{\min},x_{\max}]
+    \times
+    [y_{\min},y_{\max}].
+\end{equation}
+
+第 $j$ 个膨胀障碍物写为
+\begin{equation}
+    \widetilde{\mathcal O}_j
+    =
+    [a_j,b_j]\times[c_j,d_j].
+\end{equation}
+
+给定点为
+\[
+p=(p_x,p_y).
+\]
+
+候选安全矩形写成
+\begin{equation}
+    \mathcal B
+    =
+    [L,R]\times[B,T],
+\end{equation}
+并满足
+\begin{equation}
+    x_{\min}\le L\le p_x\le R\le x_{\max},
+\end{equation}
+\begin{equation}
+    y_{\min}\le B\le p_y\le T\le y_{\max}.
+\end{equation}
+
+面积为
+\begin{equation}
+    A=(R-L)(T-B).
+\end{equation}
+
+对于障碍物 $j$，安全条件为
+\begin{equation}
+    R\le a_j
+    \lor
+    L\ge b_j
+    \lor
+    T\le c_j
+    \lor
+    B\ge d_j.
+\end{equation}
+
+\subsection{固定纵向区间后的降维}
+
+固定
+\[
+B\le p_y\le T.
+\]
+
+定义在 $y$ 方向上与候选矩形内部重叠的活跃障碍物集合
+\begin{equation}
+    \mathcal A(B,T)
+    :=
+    \left\{
+    j:
+    B<d_j,\;
+    T>c_j
+    \right\}.
+\end{equation}
+
+注意，条件中使用严格不等式，是因为允许边界接触。
+
+若
+\[
+B=d_j
+\]
+或
+\[
+T=c_j,
+\]
+则候选矩形与该障碍物仅沿水平边界接触，不产生内部相交。
+
+对于 $j\in\mathcal A(B,T)$，候选矩形已经无法通过 $y$ 方向与障碍物分离，因此必须通过 $x$ 方向分离。
+
+\subsection{固定 \texorpdfstring{$(B,T)$}{(B,T)} 时的最优左右边界}
+
+障碍物在 $x$ 方向相对于 $p_x$ 可分为三类。
+
+第一类满足
+\begin{equation}
+    b_j\le p_x.
+\end{equation}
+此时障碍物位于给定点左侧，必须满足
+\begin{equation}
+    L\ge b_j.
+\end{equation}
+
+第二类满足
+\begin{equation}
+    a_j\ge p_x.
+\end{equation}
+此时障碍物位于给定点右侧，必须满足
+\begin{equation}
+    R\le a_j.
+\end{equation}
+
+第三类满足
+\begin{equation}
+    a_j<p_x<b_j.
+\end{equation}
+若该障碍物属于 $\mathcal A(B,T)$，则由于候选矩形必须包含 $p_x$，无法在 $x$ 方向将二者分离，因此当前 $(B,T)$ 不可行。
+
+由此得到：
+
+\begin{lemma}[固定纵向区间后的最优横向区间]
+给定 $B\le p_y\le T$。若不存在
+\[
+j\in\mathcal A(B,T)
+\]
+满足
+\[
+a_j<p_x<b_j,
+\]
+则包含 $p_x$ 的最大可行横向区间为
+\[
+[L(B,T),R(B,T)],
+\]
+其中
+\begin{equation}
+\boxed{
+L(B,T)
+=
+\max\left\{
+x_{\min},
+\max_{\substack{
+j\in\mathcal A(B,T)\\
+b_j\le p_x}}
+b_j
+\right\},
+}
+\end{equation}
+以及
+\begin{equation}
+\boxed{
+R(B,T)
+=
+\min\left\{
+x_{\max},
+\min_{\substack{
+j\in\mathcal A(B,T)\\
+a_j\ge p_x}}
+a_j
+\right\}.
+}
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+对所有位于 $p_x$ 左侧的活跃障碍物，可行性要求 $L\ge b_j$，所以所有这些条件等价于
+\[
+L
+\ge
+\max_{\substack{
+j\in\mathcal A(B,T)\\
+b_j\le p_x}}
+b_j.
+\]
+为了最大化宽度，应令 $L$ 尽可能小，从而得到上述 $L(B,T)$。
+
+对右侧障碍物同理，为了最大化宽度，应令 $R$ 尽可能大，从而得到上述 $R(B,T)$。
+
+若存在活跃障碍物满足 $a_j<p_x<b_j$，则任意包含 $p_x$ 的区间 $[L,R]$ 都与其在 $x$ 方向内部重叠，因此无可行横向区间。
+\end{proof}
+
+因此，对于给定 $(B,T)$，最大面积为
+\begin{equation}
+    A(B,T)
+    =
+    \bigl(R(B,T)-L(B,T)\bigr)(T-B).
+\end{equation}
+
+\subsection{纵向边界的有限事件集合}
+
+二维算法的第二个关键是：全局最优矩形的上下边界只需要从有限的障碍物边界事件中选择。
+
+定义
+\begin{equation}
+\boxed{
+\mathcal Y^-
+=
+\{y_{\min}\}
+\cup
+\{d_j:
+y_{\min}\le d_j\le p_y\},
+}
+\end{equation}
+以及
+\begin{equation}
+\boxed{
+\mathcal Y^+
+=
+\{y_{\max}\}
+\cup
+\{c_j:
+p_y\le c_j\le y_{\max}\}.
+}
+\end{equation}
+
+\begin{lemma}[二维纵向边界离散性]
+存在一个全局最优安全矩形满足
+\begin{equation}
+    B^\star\in\mathcal Y^-,
+    \qquad
+    T^\star\in\mathcal Y^+.
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+考虑任意全局最优矩形
+\[
+[L^\star,R^\star]\times[B^\star,T^\star].
+\]
+
+若
+\[
+B^\star>y_{\min}
+\]
+且 $B^\star$ 不等于任何障碍物的上边界 $d_j$，由于障碍物数量有限，存在足够小的 $\delta>0$，使区间
+\[
+(B^\star-\delta,B^\star)
+\]
+内不包含任何障碍物上边界。
+
+将下边界从 $B^\star$ 移至 $B^\star-\delta$ 后，不会改变任一障碍物与候选矩形在 $y$ 方向的内部重叠状态，因此原有左右边界仍然可行。然而矩形高度严格增加，从而面积严格增加，与最优性矛盾。
+
+因此
+\[
+B^\star=y_{\min}
+\]
+或
+\[
+B^\star=d_j
+\]
+对某个障碍物成立。
+
+对上边界 $T^\star$ 使用完全相同的论证可得
+\[
+T^\star=y_{\max}
+\]
+或
+\[
+T^\star=c_j.
+\]
+
+又因为矩形必须包含 $p_y$，所以只需保留位于 $p_y$ 下方的 $d_j$ 和位于 $p_y$ 上方的 $c_j$。
+\end{proof}
+
+因此二维连续优化问题严格等价于有限搜索：
+\begin{equation}
+\boxed{
+A^\star
+=
+\max_{\substack{
+B\in\mathcal Y^-\\
+T\in\mathcal Y^+}}
+A(B,T),
+}
+\end{equation}
+其中不可行的 $(B,T)$ 定义为
+\[
+A(B,T)=-\infty.
+\]
+
+\subsection{直接的 \texorpdfstring{$O(N^3)$}{O(N3)} 精确算法}
+
+最直接的方法是枚举所有
+\[
+(B,T)\in\mathcal Y^-\times\mathcal Y^+,
+\]
+然后扫描全部障碍物计算 $L$、$R$。
+
+由于
+\[
+|\mathcal Y^-|=O(N),
+\qquad
+|\mathcal Y^+|=O(N),
+\]
+候选纵向区间有 $O(N^2)$ 个；每个候选扫描 $N$ 个障碍物，因此复杂度为
+\[
+O(N^3).
+\]
+
+\subsection{二维 \texorpdfstring{$O(N^2)$}{O(N2)} 扫描算法}
+
+还可以利用单调扫描降低一个数量级。
+
+固定 $B$。随着 $T$ 从小到大变化，一个障碍物在满足
+\[
+c_j<T
+\]
+后进入纵向活跃状态。对于固定 $B$，条件
+\[
+d_j>B
+\]
+保持不变。
+
+因此，若按照 $c_j$ 从小到大排序障碍物，并按照 $\mathcal Y^+$ 从小到大扫描 $T$，每个障碍物至多被激活一次。
+
+激活障碍物 $j$ 时：
+
+\begin{itemize}
+    \item 若 $d_j\le B$，则其与当前候选区间在 $y$ 方向已经分离，忽略；
+    \item 若 $d_j>B$ 且 $b_j\le p_x$，更新
+    \[
+    L\leftarrow\max(L,b_j);
+    \]
+    \item 若 $d_j>B$ 且 $a_j\ge p_x$，更新
+    \[
+    R\leftarrow\min(R,a_j);
+    \]
+    \item 若 $d_j>B$ 且
+    \[
+    a_j<p_x<b_j,
+    \]
+    则从此之后所有更大的 $T$ 均不可行。
+\end{itemize}
+
+\begin{algorithm}[htbp]
+\caption{二维最大面积安全非对称矩形}
+\label{alg:2d}
+\footnotesize
+\begin{algorithmic}[1]
+\Require 工作空间 $[x_{\min},x_{\max}]\times[y_{\min},y_{\max}]$；障碍物 $[a_j,b_j]\times[c_j,d_j]$；给定点 $(p_x,p_y)$
+\Ensure 最大面积安全矩形及其面积
+\State 构造 $\mathcal Y^-\gets\{y_{\min}\}\cup\{d_j:y_{\min}\le d_j\le p_y\}$
+\State 构造 $\mathcal Y^+\gets\{y_{\max}\}\cup\{c_j:p_y\le c_j\le y_{\max}\}$
+\State 对 $\mathcal Y^-$、$\mathcal Y^+$ 去重
+\State 将 $\mathcal Y^+$ 按升序排序
+\State 将障碍物按 $c_j$ 升序排序
+\State $A_{\mathrm{best}}\gets -\infty$
+\State $\mathcal B_{\mathrm{best}}\gets\varnothing$
+
+\ForAll{$B\in\mathcal Y^-$}
+    \State $L\gets x_{\min}$
+    \State $R\gets x_{\max}$
+    \State $\mathrm{ptr}\gets 1$
+    \State $\mathrm{infeasible}\gets\mathrm{false}$
+
+    \ForAll{$T\in\mathcal Y^+$，按升序}
+        \While{$\mathrm{ptr}\le N$ \textbf{and} $c_{\mathrm{ptr}}<T$}
+            \State $j\gets\mathrm{ptr}$
+
+            \If{$d_j>B$}
+                \If{$b_j\le p_x$}
+                    \State $L\gets\max(L,b_j)$
+                \ElsIf{$a_j\ge p_x$}
+                    \State $R\gets\min(R,a_j)$
+                \Else
+                    \State $\mathrm{infeasible}\gets\mathrm{true}$
+                \EndIf
+            \EndIf
+
+            \State $\mathrm{ptr}\gets\mathrm{ptr}+1$
+        \EndWhile
+
+        \If{$\mathrm{infeasible}$}
+            \State \textbf{break}
+        \EndIf
+
+        \State $A\gets(R-L)(T-B)$
+
+        \If{$A>A_{\mathrm{best}}$}
+            \State $A_{\mathrm{best}}\gets A$
+            \State $\mathcal B_{\mathrm{best}}\gets[L,R]\times[B,T]$
+        \EndIf
+    \EndFor
+\EndFor
+
+\State \Return $\mathcal B_{\mathrm{best}},A_{\mathrm{best}}$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}[二维算法正确性]
+算法~\ref{alg:2d} 返回包含给定点 $p$ 的全局最大面积安全轴对齐矩形。
+\end{theorem}
+
+\begin{proof}
+由二维纵向边界离散性引理，至少存在一个全局最优解，其 $(B,T)$ 属于
+\[
+\mathcal Y^-\times\mathcal Y^+.
+\]
+算法枚举了全部这些候选纵向区间。
+
+对于固定 $(B,T)$，固定纵向区间后的最优横向区间引理给出了唯一的最大宽度可行区间 $[L(B,T),R(B,T)]$。扫描过程中维护的 $L$ 与 $R$ 正是该引理中的最大左约束和最小右约束。
+
+因此算法对每个候选纵向区间都计算了该区间下的最大面积矩形，再对全部候选取最大值，故所得结果为全局最优。
+\end{proof}
+
+\subsection{二维复杂度}
+
+候选下边界数量满足
+\[
+|\mathcal Y^-|\le N+1,
+\]
+候选上边界数量满足
+\[
+|\mathcal Y^+|\le N+1.
+\]
+
+对于一个固定的 $B$：
+\begin{itemize}
+    \item 扫描所有 $T$ 需要 $O(N)$ 次；
+    \item 障碍物指针从头到尾至多前进 $N$ 次。
+\end{itemize}
+
+因此每个 $B$ 的时间复杂度为
+\[
+O(N).
+\]
+
+总时间复杂度为
+\begin{equation}
+\boxed{
+O(N^2).
+}
+\end{equation}
+
+排序复杂度为
+\[
+O(N\log N),
+\]
+被 $O(N^2)$ 主项吸收。
+
+空间复杂度为
+\begin{equation}
+\boxed{
+O(N).
+}
+\end{equation}
+
+\section{三维问题}
+
+\subsection{三维记号}
+
+令有效工作空间为
+\begin{equation}
+\widetilde{\mathcal W}
+=
+[x_{\min},x_{\max}]
+\times
+[y_{\min},y_{\max}]
+\times
+[z_{\min},z_{\max}].
+\end{equation}
+
+第 $j$ 个膨胀障碍物写为
+\begin{equation}
+    \widetilde{\mathcal O}_j
+    =
+    [a_j,b_j]
+    \times
+    [c_j,d_j]
+    \times
+    [e_j,f_j].
+\end{equation}
+
+给定点为
+\[
+p=(p_x,p_y,p_z).
+\]
+
+候选安全盒子为
+\begin{equation}
+    \mathcal B
+    =
+    [L,R]
+    \times
+    [B,T]
+    \times
+    [D,U].
+\end{equation}
+
+约束为
+\begin{equation}
+    L\le p_x\le R,
+\end{equation}
+\begin{equation}
+    B\le p_y\le T,
+\end{equation}
+\begin{equation}
+    D\le p_z\le U.
+\end{equation}
+
+体积为
+\begin{equation}
+    V=(R-L)(T-B)(U-D).
+\end{equation}
+
+对障碍物 $j$，安全条件为
+\begin{equation}
+\begin{aligned}
+    &
+    R\le a_j
+    \lor
+    L\ge b_j
+    \lor
+    T\le c_j
+    \lor
+    B\ge d_j
+    \\
+    &\qquad
+    \lor
+    U\le e_j
+    \lor
+    D\ge f_j.
+\end{aligned}
+\end{equation}
+
+\subsection{固定 \texorpdfstring{$z$}{z} 区间后的二维降维}
+
+固定
+\[
+D\le p_z\le U.
+\]
+
+定义在 $z$ 方向上与候选盒子内部发生重叠的障碍物集合
+\begin{equation}
+\boxed{
+\mathcal A_z(D,U)
+=
+\left\{
+j:
+D<f_j,\;
+U>e_j
+\right\}.
+}
+\end{equation}
+
+若
+\[
+j\notin\mathcal A_z(D,U),
+\]
+则障碍物与候选盒子已经在 $z$ 方向分离，不再约束 $xy$ 截面。
+
+若
+\[
+j\in\mathcal A_z(D,U),
+\]
+则必须在 $x$ 或 $y$ 方向分离，即
+\begin{equation}
+    R\le a_j
+    \lor
+    L\ge b_j
+    \lor
+    T\le c_j
+    \lor
+    B\ge d_j.
+\end{equation}
+
+于是，对固定 $(D,U)$，只需考虑这些活跃障碍物在 $xy$ 平面上的投影
+\begin{equation}
+    P_j
+    :=
+    [a_j,b_j]\times[c_j,d_j].
+\end{equation}
+
+这恰好构成一个二维最大安全矩形问题。
+
+\begin{lemma}[三维到二维的精确降维]
+固定 $D\le p_z\le U$。三维盒子
+\[
+Q\times[D,U]
+\]
+可行，当且仅当二维矩形 $Q$：
+\begin{enumerate}[label=(\arabic*)]
+    \item 包含 $(p_x,p_y)$；
+    \item 位于
+    \[
+    [x_{\min},x_{\max}]
+    \times
+    [y_{\min},y_{\max}]
+    \]
+    内；
+    \item 与所有
+    \[
+    j\in\mathcal A_z(D,U)
+    \]
+    的二维投影 $P_j$ 均无内部相交。
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+对于任一障碍物 $j$：
+
+若 $j\notin\mathcal A_z(D,U)$，则
+\[
+U\le e_j
+\]
+或
+\[
+D\ge f_j,
+\]
+候选盒子与障碍物在 $z$ 方向已经分离。
+
+若 $j\in\mathcal A_z(D,U)$，则候选盒子与障碍物在 $z$ 方向内部重叠，因此三维无内部相交当且仅当二者在 $x$ 或 $y$ 方向分离。这正等价于 $Q$ 与二维投影 $P_j$ 无内部相交。
+\end{proof}
+
+因此，对于固定 $(D,U)$，
+\begin{equation}
+\boxed{
+V^\star(D,U)
+=
+(U-D)\,
+A^\star_{xy}(D,U),
+}
+\end{equation}
+其中
+\[
+A^\star_{xy}(D,U)
+\]
+为活跃投影集合对应的二维最大安全矩形面积。
+
+\subsection{\texorpdfstring{$z$}{z} 方向边界离散性}
+
+定义候选下边界集合
+\begin{equation}
+\boxed{
+\mathcal Z^-
+=
+\{z_{\min}\}
+\cup
+\{f_j:
+z_{\min}\le f_j\le p_z\},
+}
+\end{equation}
+候选上边界集合
+\begin{equation}
+\boxed{
+\mathcal Z^+
+=
+\{z_{\max}\}
+\cup
+\{e_j:
+p_z\le e_j\le z_{\max}\}.
+}
+\end{equation}
+
+\begin{lemma}[三维 $z$ 边界离散性]
+存在一个全局最优安全盒子满足
+\begin{equation}
+    D^\star\in\mathcal Z^-,
+    \qquad
+    U^\star\in\mathcal Z^+.
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+若最优盒子的下表面满足
+\[
+D^\star>z_{\min}
+\]
+且 $D^\star$ 不等于任一障碍物的上表面 $f_j$，则可以将 $D^\star$ 向下移动一个足够小的距离，而不跨越任何障碍物 $z$ 方向事件边界。
+
+此时所有障碍物在 $z$ 方向上的活跃状态保持不变，因此原 $xy$ 截面仍然可行，但盒子高度增加，从而体积增大，与最优性矛盾。
+
+故
+\[
+D^\star=z_{\min}
+\]
+或
+\[
+D^\star=f_j.
+\]
+
+对 $U^\star$ 同理，可得
+\[
+U^\star=z_{\max}
+\]
+或
+\[
+U^\star=e_j.
+\]
+
+结合
+\[
+D^\star\le p_z\le U^\star
+\]
+即可得到结论。
+\end{proof}
+
+因此三维问题可以写成
+\begin{equation}
+\boxed{
+V^\star
+=
+\max_{\substack{
+D\in\mathcal Z^-\\
+U\in\mathcal Z^+}}
+(U-D)\,
+A^\star_{xy}(D,U).
+}
+\end{equation}
+
+\subsection{三维精确算法}
+
+对每一对
+\[
+(D,U)\in\mathcal Z^-\times\mathcal Z^+,
+\]
+先提取 $z$ 方向活跃障碍物
+\[
+\mathcal A_z(D,U),
+\]
+再将这些障碍物投影到 $xy$ 平面，调用二维算法~\ref{alg:2d} 求最大面积安全矩形。
+
+\begin{algorithm}[htbp]
+\caption{三维最大体积安全非对称盒子}
+\label{alg:3d}
+\footnotesize
+\begin{algorithmic}[1]
+\Require 三维工作空间 $\widetilde{\mathcal W}$；障碍物 $\widetilde{\mathcal O}_j$；给定点 $p=(p_x,p_y,p_z)$
+\Ensure 最大体积安全盒子及其体积
+
+\State 构造 $\mathcal Z^-\gets\{z_{\min}\}\cup\{f_j:z_{\min}\le f_j\le p_z\}$
+\State 构造 $\mathcal Z^+\gets\{z_{\max}\}\cup\{e_j:p_z\le e_j\le z_{\max}\}$
+\State 对 $\mathcal Z^-$ 和 $\mathcal Z^+$ 去重
+\State $V_{\mathrm{best}}\gets-\infty$
+\State $\mathcal B_{\mathrm{best}}\gets\varnothing$
+
+\ForAll{$D\in\mathcal Z^-$}
+    \ForAll{$U\in\mathcal Z^+$}
+
+        \State $\mathcal P\gets\varnothing$
+
+        \For{$j\gets1$ \textbf{to} $N$}
+            \If{$D<f_j$ \textbf{and} $U>e_j$}
+                \State 将二维投影 $[a_j,b_j]\times[c_j,d_j]$ 加入 $\mathcal P$
+            \EndIf
+        \EndFor
+
+        \State $(Q^\star,A^\star)\gets\mathrm{Solve2D}(\mathcal P,(p_x,p_y))$
+        \State $V\gets A^\star(U-D)$
+
+        \If{$V>V_{\mathrm{best}}$}
+            \State $V_{\mathrm{best}}\gets V$
+            \State $\mathcal B_{\mathrm{best}}\gets Q^\star\times[D,U]$
+        \EndIf
+
+    \EndFor
+\EndFor
+
+\State \Return $\mathcal B_{\mathrm{best}},V_{\mathrm{best}}$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}[三维算法正确性]
+算法~\ref{alg:3d} 返回包含给定点 $p$ 的全局最大体积安全轴对齐盒子。
+\end{theorem}
+
+\begin{proof}
+由三维 $z$ 边界离散性引理，至少存在一个全局最优盒子，其
+\[
+(D^\star,U^\star)
+\in
+\mathcal Z^-\times\mathcal Z^+.
+\]
+
+算法枚举了所有这些候选 $z$ 区间。
+
+对任意固定 $(D,U)$，由三维到二维的精确降维引理，固定高度下的三维最优问题严格等价于由活跃障碍物投影构成的二维最大安全矩形问题。二维算法~\ref{alg:2d} 对该子问题给出全局最优解。
+
+因此，算法对每个可能包含全局最优解的 $z$ 区间都计算了对应的最优横截面，并对全部候选体积取最大值，所得结果必为三维全局最优解。
+\end{proof}
+
+\subsection{三维复杂度}
+
+候选 $z$ 下边界和上边界数量均为
+\[
+O(N).
+\]
+
+因此需要枚举
+\[
+O(N^2)
+\]
+组 $(D,U)$。
+
+对每组 $(D,U)$：
+\begin{itemize}
+    \item 扫描障碍物构造活跃集合需要 $O(N)$；
+    \item 调用二维精确算法需要最坏 $O(N^2)$。
+\end{itemize}
+
+因此每组的主导复杂度为
+\[
+O(N^2).
+\]
+
+总时间复杂度为
+\begin{equation}
+\boxed{
+O(N^4).
+}
+\end{equation}
+
+空间复杂度取决于二维子程序及活跃障碍物存储，可保持为
+\begin{equation}
+\boxed{
+O(N).
+}
+\end{equation}
+
+\section{三维算法的完全展开形式}
+
+三维算法还可以理解为一个逐层消除析取约束的过程。
+
+首先固定
+\[
+D,U.
+\]
+
+保留所有满足
+\[
+D<f_j,
+\qquad
+U>e_j
+\]
+的障碍物。
+
+然后在二维子问题中固定
+\[
+B,T.
+\]
+
+此时真正需要在 $x$ 方向避让的障碍物集合为
+\begin{equation}
+\boxed{
+\mathcal A(D,U,B,T)
+=
+\left\{
+j:
+D<f_j,\;
+U>e_j,\;
+B<d_j,\;
+T>c_j
+\right\}.
+}
+\end{equation}
+
+对于这些障碍物，若
+\[
+b_j\le p_x,
+\]
+则
+\[
+L\ge b_j;
+\]
+
+若
+\[
+a_j\ge p_x,
+\]
+则
+\[
+R\le a_j;
+\]
+
+若
+\[
+a_j<p_x<b_j,
+\]
+则当前四元组
+\[
+(D,U,B,T)
+\]
+不可行。
+
+若可行，则最优左右边界为
+\begin{equation}
+\boxed{
+L
+=
+\max
+\left\{
+x_{\min},
+\max_{\substack{
+j\in\mathcal A(D,U,B,T)\\
+b_j\le p_x}}
+b_j
+\right\},
+}
+\end{equation}
+以及
+\begin{equation}
+\boxed{
+R
+=
+\min
+\left\{
+x_{\max},
+\min_{\substack{
+j\in\mathcal A(D,U,B,T)\\
+a_j\ge p_x}}
+a_j
+\right\}.
+}
+\end{equation}
+
+对应体积为
+\begin{equation}
+\boxed{
+V
+=
+(R-L)(T-B)(U-D).
+}
+\end{equation}
+
+因此三维问题可以解释为
+\[
+3D
+\longrightarrow
+2D
+\longrightarrow
+1D
+\]
+的逐级降维过程。
+
+原始六项析取
+\[
+\begin{aligned}
+&R\le a_j
+\lor
+L\ge b_j
+\lor
+T\le c_j
+\lor
+B\ge d_j\\
+&\qquad\lor
+U\le e_j
+\lor
+D\ge f_j
+\end{aligned}
+\]
+在固定 $D,U$ 后消去 $z$ 方向析取，在固定 $B,T$ 后进一步消去 $y$ 方向析取，最后只剩一个一维左右分离问题。
+
+\section{边界接触与额外安全裕度}
+
+本文基本模型允许候选安全矩形或盒子与膨胀障碍物边界接触，因此使用
+\[
+R\le a_j,
+\quad
+L\ge b_j,
+\quad
+T\le c_j,
+\quad
+B\ge d_j,
+\]
+以及三维中的
+\[
+U\le e_j,
+\quad
+D\ge f_j.
+\]
+
+这意味着在判断内部重叠时需要使用严格条件。例如二维中
+\[
+B<d_j,
+\qquad
+T>c_j,
+\]
+三维中
+\[
+D<f_j,
+\qquad
+U>e_j.
+\]
+
+如果希望在膨胀后的障碍物之外进一步保留固定几何间隔 $\varepsilon>0$，可以将障碍物再次膨胀。例如二维障碍物
+\[
+[a_j,b_j]\times[c_j,d_j]
+\]
+替换为
+\[
+[a_j-\varepsilon,b_j+\varepsilon]
+\times
+[c_j-\varepsilon,d_j+\varepsilon].
+\]
+
+三维中相应替换为
+\[
+[a_j-\varepsilon,b_j+\varepsilon]
+\times
+[c_j-\varepsilon,d_j+\varepsilon]
+\times
+[e_j-\varepsilon,f_j+\varepsilon].
+\]
+
+完成额外膨胀后，算法本身无需修改。
+
+若安全裕度在不同坐标方向不同，可使用向量
+\[
+\varepsilon=(\varepsilon_1,\ldots,\varepsilon_n)
+\]
+进行各向异性膨胀。
+
+\section{几何预处理与工程实现建议}
+
+在实际实现中，可在误差膨胀后进一步进行若干预处理。
+
+\subsection{障碍物裁剪}
+
+可将每个膨胀障碍物裁剪到有效工作空间：
+\begin{equation}
+    \widetilde{\mathcal O}_j
+    \leftarrow
+    \widetilde{\mathcal O}_j
+    \cap
+    \widetilde{\mathcal W}.
+\end{equation}
+
+若裁剪后障碍物没有非零体积内部，则可直接删除。
+
+二维中，若裁剪后满足
+\[
+a_j\ge b_j
+\]
+或
+\[
+c_j\ge d_j,
+\]
+则其不形成二维内部障碍。
+
+三维中，若
+\[
+a_j\ge b_j,
+\]
+或
+\[
+c_j\ge d_j,
+\]
+或
+\[
+e_j\ge f_j,
+\]
+则其不形成三维内部障碍。
+
+\subsection{事件坐标去重}
+
+二维中应对
+\[
+\mathcal Y^-,
+\qquad
+\mathcal Y^+
+\]
+去重。
+
+三维中还应对
+\[
+\mathcal Z^-,
+\qquad
+\mathcal Z^+
+\]
+去重。
+
+若多个障碍物边界共享相同坐标，则去重可以显著减少实际枚举次数。
+
+\subsection{坐标轴选择}
+
+三维算法中三个坐标轴完全对称。本文为了表述方便固定 $z$ 方向作为最外层枚举轴。
+
+实际实现时，可以分别统计三个方向上的有效事件数量。例如对 $x$、$y$、$z$ 分别计算上下事件集合大小，并选择事件数最少的方向作为外层。
+
+若选择方向 $k$ 后，其下、上事件数量分别为
+\[
+M_k^-,
+\qquad
+M_k^+,
+\]
+则外层候选数量为
+\[
+M_k^-M_k^+.
+\]
+
+因此选择
+\[
+\argmin_k M_k^-M_k^+
+\]
+作为最外层方向，可以降低实际运行时间。
+
+\subsection{活跃障碍物数量}
+
+虽然三维最坏时间复杂度为
+\[
+O(N^4),
+\]
+但对固定 $(D,U)$，实际二维子问题中只包含
+\[
+M_{D,U}
+=
+|\mathcal A_z(D,U)|
+\]
+个活跃障碍物。
+
+因此实际计算量更接近
+\begin{equation}
+    \sum_{D\in\mathcal Z^-}
+    \sum_{U\in\mathcal Z^+}
+    O(M_{D,U}^2),
+\end{equation}
+这在障碍物沿 $z$ 方向较稀疏时可能显著小于最坏界 $O(N^4)$。
+
+\section{二维与三维算法结构总结}
+
+二维问题的基本结构为
+\[
+\boxed{
+\text{枚举下边界}
++
+\text{扫描上边界}
++
+\text{直接确定左右边界}.
+}
+\]
+
+其复杂度为
+\[
+\boxed{
+O(N^2).
+}
+\]
+
+三维问题的基本结构为
+\[
+\boxed{
+\text{枚举一对 }z\text{ 边界}
++
+\text{求解二维最大安全矩形}.
+}
+\]
+
+其复杂度为
+\[
+\boxed{
+O(N^4).
+}
+\]
+
+从析取约束角度看，二维中固定一个方向的两条边界后，障碍物约束退化为一维左右分离问题；三维中固定一个方向的两张面后，问题退化成二维，再利用二维算法继续降维。
+
+这说明低维轴对齐问题具有明显的递归几何结构。
+
+\section{与直接枚举的比较}
+
+如果忽略上述结构，二维问题可以尝试直接枚举四条边，三维问题可以尝试直接枚举六张面。
+
+由于每个边界都可能由工作空间边界或障碍物边界决定，单纯枚举可能产生：
+\[
+O(N^4)
+\]
+级别的二维组合，以及
+\[
+O(N^6)
+\]
+级别的三维组合。
+
+本文算法利用了以下事实：
+\begin{enumerate}[label=(\arabic*)]
+    \item 只需要显式枚举一部分方向上的事件边界；
+    \item 一旦这些边界固定，剩余方向上的最优边界可通过约束极值直接得到；
+    \item 三维固定一对表面后可严格降维到二维。
+\end{enumerate}
+
+因此二维复杂度降低到
+\[
+O(N^2),
+\]
+三维复杂度降低到
+\[
+O(N^4).
+\]
+
+\section{结论}
+
+本文建立了含给定点的最大体积安全非对称轴对齐超矩形问题，并研究了固定位置误差界下的鲁棒几何处理方法。
+
+首先，通过对工作空间进行收缩、对障碍物进行膨胀，将误差不确定性转化为确定性几何约束。随后，在有效自由空间内寻找包含给定点、且与所有障碍物无内部相交的最大体积轴对齐区域。
+
+对于二维情形，证明了存在一个全局最优解，其上下边界均位于有限的障碍物事件坐标集合中。固定上下边界后，所有纵向活跃障碍物仅对左右边界产生一维限制，最优左右边界可以直接计算。进一步利用上边界扫描，可以得到
+\[
+\boxed{O(N^2)}
+\]
+时间复杂度的全局精确算法。
+
+对于三维情形，固定一个方向上的下、上表面后，与候选盒子在该方向内部重叠的障碍物可以投影到二维平面，原三维问题严格等价于一个二维最大安全矩形问题。再利用二维精确算法，可获得
+\[
+\boxed{O(N^4)}
+\]
+时间复杂度的三维全局精确算法。
+
+二维和三维算法均不依赖启发式搜索，不需要求解一般形式的混合整数非线性规划，并且自然支持给定点在最终安全矩形或盒子中的非中心位置。
+
+进一步研究可考虑：
+\begin{enumerate}[label=(\arabic*)]
+    \item 三维算法的更低渐近复杂度数据结构；
+    \item 多查询点情况下的离线预处理；
+    \item 更高维情形下的递归事件枚举算法；
+    \item 障碍物动态变化时的增量更新；
+    \item 将所得最大安全矩形作为轨迹优化、采样规划或鲁棒 MPC 的局部安全域。
+\end{enumerate}
+
+\end{document}
