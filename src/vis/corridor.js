@@ -42,7 +42,7 @@ export function drawTree(group, nodes, visible) {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   const line = new THREE.LineSegments(
     geo,
-    new THREE.LineBasicMaterial({ color: 0x4d6d8c, transparent: true, opacity: 0.28 })
+    new THREE.LineBasicMaterial({ color: 0x6ec8ff, transparent: true, opacity: 0.85 })
   );
   line.name = 'rrtTree';
   group.add(line);
